@@ -109,15 +109,17 @@
             })
             .then(data => {
                 console.log('Point Data:', data);  // Debugging log
-                const forecastUrl = data.properties.forecastHourly;  // Get hourly forecast URL
-
+                
+                // Extract forecast URL (either forecastHourly or forecast)
+                const forecastUrl = data.properties.forecastHourly || data.properties.forecast;
+                
                 if (!forecastUrl) {
                     throw new Error('No forecast URL found in point data');
                 }
 
                 console.log('Using forecast URL:', forecastUrl);  // Debugging log
 
-                // Now fetch the forecast data using the hourly forecast URL
+                // Now fetch the forecast data using the extracted URL
                 return fetch(forecastUrl, {
                     method: 'GET',
                     headers: {
