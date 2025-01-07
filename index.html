@@ -7,6 +7,9 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
         #map { height: 400px; }
+        table { margin-top: 20px; border-collapse: collapse; width: 100%; }
+        th, td { padding: 8px; text-align: left; border: 1px solid #ddd; }
+        th { background-color: #f2f2f2; }
     </style>
 </head>
 <body>
@@ -24,6 +27,8 @@
         <input type="date" id="endDate" required>
         <button type="submit">Get Ice Growth Forecast</button>
     </form>
+
+    <div id="iceGrowthResults"></div>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script>
@@ -62,30 +67,100 @@
 
         // Function to fetch weather data from weather.gov API
         function getWeatherData(lat, lon, startDate, endDate) {
-            // Weather.gov API endpoint for forecasts
             const apiEndpoint = `https://api.weather.gov/points/${lat},${lon}/forecast`;
 
             fetch(apiEndpoint, {
                 method: 'GET',
                 headers: {
-                    'User-Agent': 'IceGrowthForecasting/1.0 (your-email@example.com)',  // Good User-Agent for tracking requests
+                    'User-Agent': 'IceGrowthForecasting/1.0 (your-email@example.com)',  // Change with your email
                     'Accept': 'application/ld+json'  // Standard header for NWS API
                 }
             })
             .then(response => response.json())
             .then(data => {
-                console.log(data);  // Process this data and calculate ice growth based on your model
-                // You can implement the logic to use forecast data and historical data if needed
-                displayIceGrowthForecast(data);
+                // Process the weather data
+                const forecast = data.properties.periods;
+
+                // Filter out the forecast data within the selected date range
+                const filteredForecast = forecast.filter(period => {
+                    const forecastTime = new Date(period.startTime);
+                    return forecastTime >= new Date(startDate) && forecastTime <= new Date(endDate);
+                });
+
+                // Now process this data for ice growth calculation
+                processWeatherForIceGrowth(filteredForecast);
             })
             .catch(err => console.log('Error fetching weather data: ', err));
         }
 
+        // Process the weather data for ice growth
+        function processWeatherForIceGrowth(forecastData) {
+            const weatherData = forecastData.map(period => {
+                return {
+                    time: period.startTime,
+                    temperature: period.temperature,   // In Fahrenheit
+                    windSpeed: parseInt(period.windSpeed.split(' ')[0]), // In mph
+                    humidity: period.relativeHumidity // In percentage
+                };
+            });
+
+            console.log("Processed Weather Data:", weatherData);
+
+            // Call your ice growth calculation model here
+            calculateIceGrowth(weatherData);
+        }
+
         // Placeholder function for Ice Growth Calculation
-        function displayIceGrowthForecast(forecastData) {
-            // Implement Martin Aijn's ice growth model here
-            // You can use temperature, wind speed, and other relevant forecast data
-            alert('Forecast data received! Proceed with calculations.');
+        function calculateIceGrowth(weatherData) {
+            const iceGrowthData = [];
+
+            weatherData.forEach(day => {
+                const { time, temperature, windSpeed, humidity } = day;
+
+                // Calculate ice growth or decay based on temperature (this is a basic model)
+                let iceGrowthRate = 0;
+
+                if (temperature <= 32) {
+                    // Ice growth condition: below freezing
+                    iceGrowthRate = Math.pow(32 - temperature, 1.5);  // Just a simplified formula
+                } else if (temperature > 32 && temperature <= 40) {
+                    // Ice decay condition: near freezing
+                    iceGrowthRate = -(temperature - 32);  // Basic decay model
+                }
+
+                // Apply wind speed and humidity adjustments to growth rate (this is basic)
+                iceGrowthRate -= windSpeed * 0.1;  // Wind speed slows growth
+                iceGrowthRate += humidity * 0.05;  // Humidity slightly accelerates growth (assumption)
+
+                iceGrowthData.push({
+                    time: new Date(time).toLocaleString(),
+                    temperature: temperature,
+                    iceGrowthRate: iceGrowthRate
+                });
+            });
+
+            console.log("Ice Growth Data:", iceGrowthData);
+
+            // Display the results in the format you prefer (e.g., table, graph)
+            displayIceGrowthResults(iceGrowthData);
+        }
+
+        // Displaying ice growth results in a table format
+        function displayIceGrowthResults(iceGrowthData) {
+            const table = document.createElement('table');
+            const headerRow = document.createElement('tr');
+            headerRow.innerHTML = '<th>Time</th><th>Temperature (°F)</th><th>Ice Growth Rate (inches/day)</th>';
+            table.appendChild(headerRow);
+
+            iceGrowthData.forEach(entry => {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td>${entry.time}</td><td>${entry.temperature}</td><td>${entry.iceGrowthRate.toFixed(2)}</td>`;
+                table.appendChild(row);
+            });
+
+            const resultsContainer = document.getElementById('iceGrowthResults');
+            resultsContainer.innerHTML = '';  // Clear previous results
+            resultsContainer.appendChild(table);  // Append the new table
         }
     </script>
 </body>
