@@ -10,6 +10,8 @@
         table { margin-top: 20px; border-collapse: collapse; width: 100%; }
         th, td { padding: 8px; text-align: left; border: 1px solid #ddd; }
         th { background-color: #f2f2f2; }
+        #coordinates-box { margin-top: 10px; }
+        input { width: 150px; padding: 5px; }
     </style>
 </head>
 <body>
@@ -19,118 +21,126 @@
     <!-- Map Container -->
     <div id="map"></div>
     
-    <!-- Coordinates and Date Range Form -->
+    <!-- Coordinates Box -->
+    <div id="coordinates-box">
+        <label for="latInput">Latitude:</label>
+        <input type="text" id="latInput" placeholder="Latitude" readonly>
+        <label for="lonInput">Longitude:</label>
+        <input type="text" id="lonInput" placeholder="Longitude" readonly>
+    </div>
+
+    <!-- Date Range Form -->
     <form id="form">
         <label for="startDate">Start Date:</label>
         <input type="date" id="startDate" required>
         <label for="endDate">End Date:</label>
         <input type="date" id="endDate" required>
-        <button type="submit">Get Ice Growth Forecast</button>
+        <button type="submit">Publish Results</button>
     </form>
 
     <div id="iceGrowthResults"></div>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script>
-        // Create the map
-        const map = L.map('map').setView([51.505, -0.09], 2);  // Default coordinates (zoomed out to world view)
+        // Initialize map
+        const map = L.map('map').setView([51.505, -0.09], 2); // Default center: World view
 
-        // Add tile layer (Mapbox or OpenStreetMap)
+        // Add tile layer (OpenStreetMap)
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
 
-        // Add click event to the map to get coordinates
         let userLat, userLon;
+        let userMarker;
 
+        // When the map is clicked, place a pin and display coordinates
         map.on('click', function(e) {
-            // Get the coordinates where the user clicks
+            // If there's an existing marker, remove it
+            if (userMarker) {
+                map.removeLayer(userMarker);
+            }
+
+            // Set new coordinates
             userLat = e.latlng.lat;
             userLon = e.latlng.lng;
-            alert(`Coordinates: ${userLat}, ${userLon}`);
+
+            // Add new marker
+            userMarker = L.marker([userLat, userLon]).addTo(map);
+
+            // Update the coordinate inputs
+            document.getElementById('latInput').value = userLat.toFixed(4);
+            document.getElementById('lonInput').value = userLon.toFixed(4);
         });
 
-        // Form submission for getting ice growth data
+        // Date range form submission
         document.getElementById('form').addEventListener('submit', function(e) {
             e.preventDefault();
             const startDate = document.getElementById('startDate').value;
             const endDate = document.getElementById('endDate').value;
 
+            // Ensure coordinates and date range are provided
             if (userLat && userLon && startDate && endDate) {
-                alert(`Fetching data for coordinates: ${userLat}, ${userLon} from ${startDate} to ${endDate}`);
-                // Call weather API and ice growth calculation function here
                 getWeatherData(userLat, userLon, startDate, endDate);
             } else {
                 alert('Please select a location and date range.');
             }
         });
 
-        // Function to fetch weather data from weather.gov API
+        // Fetch weather data from weather.gov API
         function getWeatherData(lat, lon, startDate, endDate) {
             const apiEndpoint = `https://api.weather.gov/points/${lat},${lon}/forecast`;
 
             fetch(apiEndpoint, {
                 method: 'GET',
                 headers: {
-                    'User-Agent': 'IceGrowthForecasting/1.0 (your-email@example.com)',  // Change with your email
-                    'Accept': 'application/ld+json'  // Standard header for NWS API
+                    'User-Agent': 'IceGrowthForecasting/1.0 (bynathanwinegar@gmail.com)',  // Change with your email
+                    'Accept': 'application/ld+json'
                 }
             })
             .then(response => response.json())
             .then(data => {
-                // Process the weather data
                 const forecast = data.properties.periods;
 
-                // Filter out the forecast data within the selected date range
+                // Filter forecast data based on the selected date range
                 const filteredForecast = forecast.filter(period => {
                     const forecastTime = new Date(period.startTime);
                     return forecastTime >= new Date(startDate) && forecastTime <= new Date(endDate);
                 });
 
-                // Now process this data for ice growth calculation
                 processWeatherForIceGrowth(filteredForecast);
             })
             .catch(err => console.log('Error fetching weather data: ', err));
         }
 
-        // Process the weather data for ice growth
+        // Process the weather data for ice growth calculation
         function processWeatherForIceGrowth(forecastData) {
-            const weatherData = forecastData.map(period => {
-                return {
-                    time: period.startTime,
-                    temperature: period.temperature,   // In Fahrenheit
-                    windSpeed: parseInt(period.windSpeed.split(' ')[0]), // In mph
-                    humidity: period.relativeHumidity // In percentage
-                };
-            });
+            const weatherData = forecastData.map(period => ({
+                time: period.startTime,
+                temperature: period.temperature, // In Fahrenheit
+                windSpeed: parseInt(period.windSpeed.split(' ')[0]), // In mph
+                humidity: period.relativeHumidity // In percentage
+            }));
 
-            console.log("Processed Weather Data:", weatherData);
-
-            // Call your ice growth calculation model here
+            // Calculate ice growth using weather data
             calculateIceGrowth(weatherData);
         }
 
-        // Placeholder function for Ice Growth Calculation
+        // Calculate ice growth or decay based on weather data
         function calculateIceGrowth(weatherData) {
             const iceGrowthData = [];
 
             weatherData.forEach(day => {
                 const { time, temperature, windSpeed, humidity } = day;
-
-                // Calculate ice growth or decay based on temperature (this is a basic model)
                 let iceGrowthRate = 0;
 
                 if (temperature <= 32) {
-                    // Ice growth condition: below freezing
-                    iceGrowthRate = Math.pow(32 - temperature, 1.5);  // Just a simplified formula
+                    iceGrowthRate = Math.pow(32 - temperature, 1.5); // Basic ice growth model
                 } else if (temperature > 32 && temperature <= 40) {
-                    // Ice decay condition: near freezing
-                    iceGrowthRate = -(temperature - 32);  // Basic decay model
+                    iceGrowthRate = -(temperature - 32); // Basic ice decay model
                 }
 
-                // Apply wind speed and humidity adjustments to growth rate (this is basic)
-                iceGrowthRate -= windSpeed * 0.1;  // Wind speed slows growth
-                iceGrowthRate += humidity * 0.05;  // Humidity slightly accelerates growth (assumption)
+                iceGrowthRate -= windSpeed * 0.1; // Wind slows growth
+                iceGrowthRate += humidity * 0.05; // Humidity accelerates growth
 
                 iceGrowthData.push({
                     time: new Date(time).toLocaleString(),
@@ -139,13 +149,10 @@
                 });
             });
 
-            console.log("Ice Growth Data:", iceGrowthData);
-
-            // Display the results in the format you prefer (e.g., table, graph)
             displayIceGrowthResults(iceGrowthData);
         }
 
-        // Displaying ice growth results in a table format
+        // Display ice growth results in a table
         function displayIceGrowthResults(iceGrowthData) {
             const table = document.createElement('table');
             const headerRow = document.createElement('tr');
@@ -159,8 +166,8 @@
             });
 
             const resultsContainer = document.getElementById('iceGrowthResults');
-            resultsContainer.innerHTML = '';  // Clear previous results
-            resultsContainer.appendChild(table);  // Append the new table
+            resultsContainer.innerHTML = ''; // Clear previous results
+            resultsContainer.appendChild(table); // Display new table
         }
     </script>
 </body>
