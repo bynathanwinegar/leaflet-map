@@ -1,124 +1,89 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ice Thickness Prediction</title>
-  <!-- Leaflet CSS -->
-  <link 
-    rel="stylesheet" 
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
-    integrity="sha384-s2kOj1EoYcofd/NHTj/0ijOhrPHnE0qjoWrODy8F2eN15ibv51/dksB+8m0U5Zh+" 
-    crossorigin="anonymous"
-  />
-  <!-- Leaflet JS -->
-  <script 
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
-    integrity="sha384-oHYpAFIsD7f/U0cDJZKql2pHbHp21k50sKgkOt6FLr3YH2FJuv4NsVC8FwGe8tFk" 
-    crossorigin="anonymous">
-  </script>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-    }
-    #map {
-      height: 500px;
-      width: 100%;
-    }
-    .controls {
-      margin: 20px;
-    }
-    .controls input, .controls button {
-      margin: 5px;
-      padding: 10px;
-      font-size: 16px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ice Growth Forecasting</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        #map { height: 400px; }
+    </style>
 </head>
 <body>
-  <h1 style="text-align: center;">Ice Thickness Prediction Tool</h1>
-  <div id="map"></div>
-  <div class="controls">
-    <label for="coords">Selected Coordinates:</label>
-    <input type="text" id="coords" readonly style="width: 300px;" placeholder="Click the map to get coordinates"><br>
-    <label for="startDate">Start Date:</label>
-    <input type="date" id="startDate">
-    <label for="endDate">End Date:</label>
-    <input type="date" id="endDate"><br>
-    <button id="predictButton">Predict Ice Thickness</button>
-  </div>
 
-  <script>
-    // Initialize the map
-    const map = L.map('map').setView([42.812608, -112.386040], 8); // Default center
+    <h2>Ice Growth Forecasting</h2>
+    
+    <!-- Map Container -->
+    <div id="map"></div>
+    
+    <!-- Coordinates and Date Range Form -->
+    <form id="form">
+        <label for="startDate">Start Date:</label>
+        <input type="date" id="startDate" required>
+        <label for="endDate">End Date:</label>
+        <input type="date" id="endDate" required>
+        <button type="submit">Get Ice Growth Forecast</button>
+    </form>
 
-    // Add OpenStreetMap tiles
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    }).addTo(map);
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        // Create the map
+        const map = L.map('map').setView([51.505, -0.09], 2);  // Default coordinates (zoomed out to world view)
 
-    let marker;
+        // Add tile layer (Mapbox or OpenStreetMap)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
 
-    // Add click event to get coordinates
-    map.on('click', (e) => {
-      const lat = e.latlng.lat.toFixed(6);
-      const lng = e.latlng.lng.toFixed(6);
+        // Add click event to the map to get coordinates
+        let userLat, userLon;
 
-      // Display coordinates
-      document.getElementById('coords').value = `${lat}, ${lng}`;
+        map.on('click', function(e) {
+            // Get the coordinates where the user clicks
+            userLat = e.latlng.lat;
+            userLon = e.latlng.lng;
+            alert(`Coordinates: ${userLat}, ${userLon}`);
+        });
 
-      // Add or move the marker
-      if (marker) {
-        marker.setLatLng([lat, lng]);
-      } else {
-        marker = L.marker([lat, lng]).addTo(map);
-      }
-    });
+        // Form submission for getting ice growth data
+        document.getElementById('form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
 
-    // Add functionality for the Predict Ice Thickness button
-    document.getElementById('predictButton').addEventListener('click', () => {
-      const coords = document.getElementById('coords').value;
-      const startDate = document.getElementById('startDate').value;
-      const endDate = document.getElementById('endDate').value;
+            if (userLat && userLon && startDate && endDate) {
+                alert(`Fetching data for coordinates: ${userLat}, ${userLon} from ${startDate} to ${endDate}`);
+                // Call weather API and ice growth calculation function here
+                getWeatherData(userLat, userLon, startDate, endDate);
+            } else {
+                alert('Please select a location and date range.');
+            }
+        });
 
-      if (!coords || !startDate || !endDate) {
-        alert('Please select coordinates and a valid date range.');
-        return;
-      }
+        // Function to fetch weather data
+        function getWeatherData(lat, lon, startDate, endDate) {
+            // Use OpenWeather API or any other weather API to fetch data
+            // You might need an API key for this
 
-      const [lat, lng] = coords.split(', ');
+            const apiKey = 'YOUR_API_KEY';
+            const url = `https://api.openweathermap.org/data/2.5/onecall/timemachine?lat=${lat}&lon=${lon}&dt=${Math.floor(new Date(startDate).getTime() / 1000)}&appid=${apiKey}`;
 
-      // Validate date range
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      const now = new Date();
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data);  // Process this data and calculate ice growth based on your model
+                    // Call ice growth model function here
+                    // displayIceGrowthForecast(data);
+                })
+                .catch(err => console.log('Error fetching weather data: ', err));
+        }
 
-      if (start > end) {
-        alert('The start date cannot be after the end date.');
-        return;
-      }
+        // Placeholder function for Ice Growth Calculation
+        function displayIceGrowthForecast(weatherData) {
+            // Implement Martin Aijn's ice growth model here
+            // Display results in a readable format
+        }
 
-      if ((end - start) / (1000 * 60 * 60 * 24) > 120) {
-        alert('Date range cannot exceed 4 months.');
-        return;
-      }
-
-      if (end > now) {
-        alert('The end date cannot be in the future.');
-        return;
-      }
-
-      // Display loading state (placeholder for actual functionality)
-      alert(`Fetching weather data and predicting ice thickness for:
-      Coordinates: ${lat}, ${lng}
-      Date Range: ${startDate} to ${endDate}`);
-
-      // Call your ice prediction model here
-      // For example:
-      // fetchWeatherDataAndPredict(lat, lng, startDate, endDate);
-    });
-  </script>
+    </script>
 </body>
 </html>
