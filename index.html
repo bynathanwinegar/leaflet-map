@@ -33,13 +33,13 @@
         <input type="date" id="start-date">
         <label for="end-date">End Date:</label>
         <input type="date" id="end-date">
-        <button id="fetch-weather">Fetch Weather Data</button>
+        <button id="fetch-weather">Fetch Ice Growth Data</button>
     </div>
     <div id="results">
         <h2>Results</h2>
         <div id="forecast-cards"></div>
         <div class="chart-container">
-            <canvas id="temperatureChart"></canvas>
+            <canvas id="iceGrowthChart"></canvas>
         </div>
     </div>
 
@@ -110,35 +110,44 @@
             try {
                 const { lat, lng } = selectedLatLng;
 
-                // Fetch weather data from weather.gov
-                const pointResponse = await axios.get(`https://api.weather.gov/points/${lat},${lng}`);
-                const forecastUrl = pointResponse.data.properties.forecast;
+                // Simulate fetching ice growth data for each day in the range
+                const dateRange = [];
+                let currentDate = new Date(startDate);
+                const endDateObj = new Date(endDate);
 
-                const weatherResponse = await axios.get(forecastUrl);
-                const periods = weatherResponse.data.properties.periods;
+                while (currentDate <= endDateObj) {
+                    dateRange.push(new Date(currentDate));
+                    currentDate.setDate(currentDate.getDate() + 1);
+                }
 
-                // Display the weather data as cards
-                forecastCards.innerHTML = periods.map(period => `
+                // Mock data: Use temperature to calculate ice growth (in mm/day)
+                const iceGrowthData = dateRange.map((date, index) => {
+                    const temperature = -5 + Math.sin(index) * 3; // Simulated temperature (°C)
+                    const growthRate = Math.max(0, (temperature < -1 ? 0.5 : 0) * (Math.abs(temperature + 1)));
+                    return { date: date.toISOString().split('T')[0], growthRate };
+                });
+
+                // Display ice growth data
+                forecastCards.innerHTML = iceGrowthData.map(data => `
                     <div style="border: 1px solid #ccc; padding: 10px; margin: 10px;">
-                        <img src="${period.icon}" alt="Weather icon" style="float: left; margin-right: 10px;">
-                        <h3>${period.name}</h3>
-                        <p>${period.detailedForecast}</p>
+                        <h3>${data.date}</h3>
+                        <p>Ice Growth Rate: ${data.growthRate.toFixed(2)} mm/day</p>
                     </div>
                 `).join('');
 
-                // Prepare data for the temperature chart
-                const labels = periods.map(period => period.name);
-                const temperatures = periods.map(period => period.temperature);
+                // Prepare data for the chart
+                const labels = iceGrowthData.map(data => data.date);
+                const growthRates = iceGrowthData.map(data => data.growthRate);
 
-                // Create a temperature chart
-                const ctx = document.getElementById('temperatureChart').getContext('2d');
+                // Create or update the ice growth chart
+                const ctx = document.getElementById('iceGrowthChart').getContext('2d');
                 new Chart(ctx, {
                     type: 'line',
                     data: {
                         labels: labels,
                         datasets: [{
-                            label: 'Temperature (°F)',
-                            data: temperatures,
+                            label: 'Ice Growth Rate (mm/day)',
+                            data: growthRates,
                             borderColor: 'rgba(75, 192, 192, 1)',
                             backgroundColor: 'rgba(75, 192, 192, 0.2)',
                             fill: true,
@@ -155,8 +164,8 @@
                 });
 
             } catch (error) {
-                console.error('Error fetching weather data:', error);
-                alert('Failed to fetch weather data. Check console for details.');
+                console.error('Error fetching ice growth data:', error);
+                alert('Failed to fetch ice growth data. Check console for details.');
             }
         });
     </script>
