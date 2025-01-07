@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ice Thickness Prediction</title>
+  <!-- Leaflet CSS -->
+  <link 
+    rel="stylesheet" 
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
+    integrity="sha384-s2kOj1EoYcofd/NHTj/0ijOhrPHnE0qjoWrODy8F2eN15ibv51/dksB+8m0U5Zh+" 
+    crossorigin="anonymous"
+  />
+  <!-- Leaflet JS -->
+  <script 
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
+    integrity="sha384-oHYpAFIsD7f/U0cDJZKql2pHbHp21k50sKgkOt6FLr3YH2FJuv4NsVC8FwGe8tFk" 
+    crossorigin="anonymous">
+  </script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    #map {
+      height: 500px;
+      width: 100%;
+    }
+    .controls {
+      margin: 20px;
+    }
+    .controls input, .controls button {
+      margin: 5px;
+      padding: 10px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <h1 style="text-align: center;">Ice Thickness Prediction Tool</h1>
+  <div id="map"></div>
+  <div class="controls">
+    <label for="coords">Selected Coordinates:</label>
+    <input type="text" id="coords" readonly style="width: 300px;" placeholder="Click the map to get coordinates"><br>
+    <label for="startDate">Start Date:</label>
+    <input type="date" id="startDate">
+    <label for="endDate">End Date:</label>
+    <input type="date" id="endDate"><br>
+    <button id="predictButton">Predict Ice Thickness</button>
+  </div>
+
+  <script>
+    // Initialize the map
+    const map = L.map('map').setView([42.812608, -112.386040], 8); // Default center
+
+    // Add OpenStreetMap tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    let marker;
+
+    // Add click event to get coordinates
+    map.on('click', (e) => {
+      const lat = e.latlng.lat.toFixed(6);
+      const lng = e.latlng.lng.toFixed(6);
+
+      // Display coordinates
+      document.getElementById('coords').value = `${lat}, ${lng}`;
+
+      // Add or move the marker
+      if (marker) {
+        marker.setLatLng([lat, lng]);
+      } else {
+        marker = L.marker([lat, lng]).addTo(map);
+      }
+    });
+
+    // Add functionality for the Predict Ice Thickness button
+    document.getElementById('predictButton').addEventListener('click', () => {
+      const coords = document.getElementById('coords').value;
+      const startDate = document.getElementById('startDate').value;
+      const endDate = document.getElementById('endDate').value;
+
+      if (!coords || !startDate || !endDate) {
+        alert('Please select coordinates and a valid date range.');
+        return;
+      }
+
+      const [lat, lng] = coords.split(', ');
+
+      // Validate date range
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const now = new Date();
+
+      if (start > end) {
+        alert('The start date cannot be after the end date.');
+        return;
+      }
+
+      if ((end - start) / (1000 * 60 * 60 * 24) > 120) {
+        alert('Date range cannot exceed 4 months.');
+        return;
+      }
+
+      if (end > now) {
+        alert('The end date cannot be in the future.');
+        return;
+      }
+
+      // Display loading state (placeholder for actual functionality)
+      alert(`Fetching weather data and predicting ice thickness for:
+      Coordinates: ${lat}, ${lng}
+      Date Range: ${startDate} to ${endDate}`);
+
+      // Call your ice prediction model here
+      // For example:
+      // fetchWeatherDataAndPredict(lat, lng, startDate, endDate);
+    });
+  </script>
+</body>
+</html>
