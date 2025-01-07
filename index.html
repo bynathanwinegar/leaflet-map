@@ -88,11 +88,12 @@
 
         // Fetch weather data from weather.gov API
         function getWeatherData(lat, lon, startDate, endDate) {
-            const apiEndpoint = `https://api.weather.gov/points/${lat},${lon}/forecast`;
+            const pointApiUrl = `https://api.weather.gov/points/${lat},${lon}`;
 
-            console.log('Fetching weather data for:', lat, lon);  // Debugging log
+            console.log('Fetching point data for:', lat, lon);  // Debugging log
+            console.log('API Endpoint:', pointApiUrl); // Log the full endpoint to verify it's correct
 
-            fetch(apiEndpoint, {
+            fetch(pointApiUrl, {
                 method: 'GET',
                 headers: {
                     'User-Agent': 'IceGrowthForecasting/1.0 (your-email@example.com)',  // Change with your email
@@ -100,14 +101,40 @@
                 }
             })
             .then(response => {
-                console.log('API Response Status:', response.status);  // Debugging log
+                console.log('Point API Response Status:', response.status);  // Debugging log
                 if (!response.ok) {
                     throw new Error('Network response was not ok');
                 }
                 return response.json();
             })
             .then(data => {
-                console.log('Weather Data:', data);  // Debugging log
+                console.log('Point Data:', data);  // Debugging log
+                const forecastUrl = data.properties.forecastHourly;  // Get hourly forecast URL
+
+                if (!forecastUrl) {
+                    throw new Error('No forecast URL found in point data');
+                }
+
+                console.log('Using forecast URL:', forecastUrl);  // Debugging log
+
+                // Now fetch the forecast data using the hourly forecast URL
+                return fetch(forecastUrl, {
+                    method: 'GET',
+                    headers: {
+                        'User-Agent': 'IceGrowthForecasting/1.0 (your-email@example.com)',  // Change with your email
+                        'Accept': 'application/ld+json'
+                    }
+                });
+            })
+            .then(response => {
+                console.log('Forecast API Response Status:', response.status);  // Debugging log
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Forecast Data:', data);  // Debugging log
                 const forecast = data.properties.periods;
 
                 if (!forecast || forecast.length === 0) {
