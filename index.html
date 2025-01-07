@@ -7,12 +7,18 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.4.0/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         #map {
             height: 500px;
         }
         #controls {
             margin: 20px 0;
+        }
+        .chart-container {
+            width: 100%;
+            max-width: 600px;
+            margin: 20px auto;
         }
     </style>
 </head>
@@ -31,7 +37,10 @@
     </div>
     <div id="results">
         <h2>Results</h2>
-        <pre id="output"></pre>
+        <div id="forecast-cards"></div>
+        <div class="chart-container">
+            <canvas id="temperatureChart"></canvas>
+        </div>
     </div>
 
     <script>
@@ -44,7 +53,7 @@
         const coordinatesInput = document.getElementById('coordinates');
         const startDateInput = document.getElementById('start-date');
         const endDateInput = document.getElementById('end-date');
-        const output = document.getElementById('output');
+        const forecastCards = document.getElementById('forecast-cards');
         let marker;
 
         map.on('click', (e) => {
@@ -108,11 +117,43 @@
                 const weatherResponse = await axios.get(forecastUrl);
                 const periods = weatherResponse.data.properties.periods;
 
-                // Display the weather data
-                output.textContent = JSON.stringify(periods, null, 2);
+                // Display the weather data as cards
+                forecastCards.innerHTML = periods.map(period => `
+                    <div style="border: 1px solid #ccc; padding: 10px; margin: 10px;">
+                        <img src="${period.icon}" alt="Weather icon" style="float: left; margin-right: 10px;">
+                        <h3>${period.name}</h3>
+                        <p>${period.detailedForecast}</p>
+                    </div>
+                `).join('');
 
-                // Example: Call your ice growth model function here with the hourly data
-                // and display the results in a readable format.
+                // Prepare data for the temperature chart
+                const labels = periods.map(period => period.name);
+                const temperatures = periods.map(period => period.temperature);
+
+                // Create a temperature chart
+                const ctx = document.getElementById('temperatureChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Temperature (°F)',
+                            data: temperatures,
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            fill: true,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                display: true,
+                            },
+                        },
+                    },
+                });
+
             } catch (error) {
                 console.error('Error fetching weather data:', error);
                 alert('Failed to fetch weather data. Check console for details.');
