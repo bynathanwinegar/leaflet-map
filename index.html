@@ -139,176 +139,129 @@
         });
 
         coordinatesInput.addEventListener('change', () => {
-    const coords = coordinatesInput.value.split(',').map(c => parseFloat(c.trim()));
-    if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
-        selectedLatLng = { lat: coords[0], lng: coords[1] };
+            const coords = coordinatesInput.value.split(',').map(c => parseFloat(c.trim()));
+            if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
+                selectedLatLng = { lat: coords[0], lng: coords[1] };
 
-        // Move the marker and center the map
-        if (marker) {
-            marker.setLatLng(selectedLatLng);
-        } else {
-            marker = L.marker(selectedLatLng).addTo(map);
-        }
-        map.setView(selectedLatLng, map.getZoom());
-    } else {
-        alert('Invalid coordinates. Please enter in the format: Latitude, Longitude');
-    }
-}); // Ensure this closing brace and parenthesis are present
-
-document.getElementById('fetch-weather').addEventListener('click', async () => {
-    if (!selectedLatLng) {
-        alert('Please select a location on the map or enter coordinates.');
-        return;
-    }
-
-    const startDate = startDateInput.value;
-    const endDate = endDateInput.value;
-    let verifiedThickness = parseFloat(verifiedThicknessInput.value);
-    const verifiedDate = verifiedDateInput.value;
-
-    if (!startDate || !endDate) {
-        alert('Please select both start and end dates.');
-        return;
-    }
-
-    if (new Date(startDate) > new Date(endDate)) {
-        alert('Start date must be before end date.');
-        return;
-    }
-
-    if (!isMetric && !isNaN(verifiedThickness)) {
-        verifiedThickness = convertThickness(verifiedThickness, true); // Convert to Metric if input is Imperial
-    }
-
-    try {
-        const { lat, lng } = selectedLatLng;
-
-        // Fetch weather data from Weather.gov API (National Weather Service)
-        const weatherResponse = await axios.get(`https://api.weather.gov/points/${lat},${lng}`);
-        const forecastUrl = weatherResponse.data.properties.forecast;
-        
-        // Fetch forecast data
-        const forecastResponse = await axios.get(forecastUrl);
-        const forecastData = forecastResponse.data.properties.periods;
-
-        // Simulate fetching ice growth data for each day in the range based on weather forecast
-        const dateRange = [];
-        let currentDate = new Date(startDate);
-        const endDateObj = new Date(endDate);
-
-        while (currentDate <= endDateObj) {
-            dateRange.push(new Date(currentDate));
-            currentDate.setDate(currentDate.getDate() + 1);
-        }
-
-        // Initial thickness
-        let initialThickness = verifiedThickness || 0;
-        const initialDate = verifiedDate ? new Date(verifiedDate) : new Date(startDate);
-
-        // Map the forecast data to actual dates and get temperature
-        const iceGrowthData = dateRange.map((date, index) => {
-            // Find the closest forecast period for the date
-            const forecastForDate = forecastData.find(forecast => {
-                const forecastDate = new Date(forecast.startTime);
-                return forecastDate.toISOString().split('T')[0] === date.toISOString().split('T')[0];
-            });
-
-            const temperature = forecastForDate ? forecastForDate.temperature : -5; // Default to -5°C if no data available
-
-            const fdd = Math.max(0, (0 - temperature)); // Freezing Degree Days
-            const pdd = Math.max(0, temperature); // Positive Degree Days
-
-            // Growth rate (simplified Ashton formula)
-            const growthRate = initialThickness < 76.2 // 3 inches
-                ? Math.max(0, (temperature < -1 ? 0.5 : 0) * (Math.abs(temperature + 1)))
-                : Math.max(0, 25 / (15 + initialThickness));
-
-            // Melting rate (assumed linear relation to PDD)
-            const meltingRate = pdd > 0 ? pdd * 0.2 : 0; // Example: 0.2 mm/°C/day
-
-            // Adjust thickness based on date
-            if (date >= initialDate) {
-                initialThickness += (growthRate - meltingRate);
+                // Move the marker and center the map
+                if (marker) {
+                    marker.setLatLng(selectedLatLng);
+                } else {
+                    marker = L.marker(selectedLatLng).addTo(map);
+                }
+                map.setView(selectedLatLng, map.getZoom());
             } else {
-                initialThickness -= meltingRate; // Estimate thinning for previous dates
+                alert('Invalid coordinates. Please enter in the format: Latitude, Longitude');
+            }
+        });
+
+        document.getElementById('fetch-weather').addEventListener('click', async () => {
+            if (!selectedLatLng) {
+                alert('Please select a location on the map or enter coordinates.');
+                return;
             }
 
-            const thickness = Math.max(0, initialThickness);
-            return {
-                date: date.toISOString().split('T')[0],
-                growthRate: isMetric ? growthRate : convertThickness(growthRate, false),
-                meltingRate: isMetric ? meltingRate : convertThickness(meltingRate, false),
-                thickness: isMetric ? thickness : convertThickness(thickness, false),
-            };
-        });
+            const startDate = startDateInput.value;
+            const endDate = endDateInput.value;
+            let verifiedThickness = parseFloat(verifiedThicknessInput.value);
+            const verifiedDate = verifiedDateInput.value;
 
-        // Display ice growth data
-        forecastCards.innerHTML = iceGrowthData.map(data => `
-            <div style="border: 1px solid #ccc; padding: 10px; margin: 10px;">
-                <h3>${data.date}</h3>
-                <p>Ice Growth Rate: ${data.growthRate.toFixed(2)} ${isMetric ? 'mm/day' : 'in/day'}</p>
-                <p>Ice Melting Rate: ${data.meltingRate.toFixed(2)} ${isMetric ? 'mm/day' : 'in/day'}</p>
-                <p>Total Thickness: ${data.thickness.toFixed(2)} ${isMetric ? 'mm' : 'in'}</p>
-            </div>
-        `).join('');
+            if (!startDate || !endDate) {
+                alert('Please select both start and end dates.');
+                return;
+            }
 
-        // Prepare data for the chart
-        const labels = iceGrowthData.map(data => data.date);
-        const growthRates = iceGrowthData.map(data => data.growthRate);
-        const meltingRates = iceGrowthData.map(data => data.meltingRate);
-        const thicknesses = iceGrowthData.map(data => data.thickness);
+            if (new Date(startDate) > new Date(endDate)) {
+                alert('Start date must be before end date.');
+                return;
+            }
 
-        // Destroy existing chart if it exists
-        if (iceGrowthChart) {
-            iceGrowthChart.destroy();
-        }
+            if (!isMetric && !isNaN(verifiedThickness)) {
+                verifiedThickness = convertThickness(verifiedThickness, true); // Convert to Metric if input is Imperial
+            }
 
-        // Create or update the ice growth chart
-        const ctx = document.getElementById('iceGrowthChart').getContext('2d');
-        iceGrowthChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [
-                    {
-                        label: `Ice Growth Rate (${isMetric ? 'mm/day' : 'in/day'})`,
-                        data: growthRates,
-                        borderColor: 'rgba(75, 192, 192, 1)',
-                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                        fill: true,
-                    },
-                    {
-                        label: `Ice Melting Rate (${isMetric ? 'mm/day' : 'in/day'})`,
-                        data: meltingRates,
-                        borderColor: 'rgba(192, 192, 75, 1)',
-                        backgroundColor: 'rgba(192, 192, 75, 0.2)',
-                        fill: true,
-                    },
-                    {
-                        label: `Total Thickness (${isMetric ? 'mm' : 'in'})`,
-                        data: thicknesses,
-                        borderColor: 'rgba(192, 75, 75, 1)',
-                        backgroundColor: 'rgba(192, 75, 75, 0.2)',
-                        fill: true,
+            try {
+                const { lat, lng } = selectedLatLng;
+
+                // Fetch weather data from Weather.gov API (National Weather Service)
+                const weatherResponse = await axios.get(`https://api.weather.gov/points/${lat},${lng}`);
+                const forecastUrl = weatherResponse.data.properties.forecast;
+                
+                // Fetch forecast data
+                const forecastResponse = await axios.get(forecastUrl);
+                const forecastData = forecastResponse.data.properties.periods;
+
+                // Simulate fetching ice growth data for each day in the range based on weather forecast
+                const dateRange = [];
+                let currentDate = new Date(startDate);
+                const endDateObj = new Date(endDate);
+
+                while (currentDate <= endDateObj) {
+                    dateRange.push(new Date(currentDate));
+                    currentDate.setDate(currentDate.getDate() + 1);
+                }
+
+                // Initial thickness
+                let initialThickness = verifiedThickness || 0;
+                const initialDate = verifiedDate ? new Date(verifiedDate) : new Date(startDate);
+
+                // Map the forecast data to actual dates and get temperature
+                const iceGrowthData = dateRange.map((date, index) => {
+                    // Find the closest forecast period for the date
+                    const forecastForDate = forecastData.find(forecast => {
+                        const forecastDate = new Date(forecast.startTime);
+                        return forecastDate.toISOString().split('T')[0] === date.toISOString().split('T')[0];
+                    });
+
+                    const temperature = forecastForDate ? forecastForDate.temperature : -5; // Default to -5°C if no data available
+
+                    const fdd = Math.max(0, (0 - temperature)); // Freezing Degree Days
+                    const pdd = Math.max(0, temperature); // Positive Degree Days
+
+                    // Growth rate (simplified Ashton formula)
+                    const growthRate = initialThickness < 76.2 // 3 inches
+                        ? Math.max(0, (temperature < -1 ? 0.5 : 0) * (Math.abs(temperature + 1)))
+                        : Math.max(0, 25 / (15 + initialThickness));
+
+                    // Melting rate (assumed linear relation to PDD)
+                    const meltingRate = pdd > 0 ? pdd * 0.2 : 0; // Example: 0.2 mm/°C/day
+
+                    // Adjust thickness based on date
+                    if (date >= initialDate) {
+                        initialThickness += (growthRate - meltingRate);
+                    } else {
+                        initialThickness -= meltingRate; // Estimate thinning for previous dates
                     }
-                ]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: {
-                        display: true,
-                    },
-                },
-            },
-        });
 
-    } catch (error) {
-        console.error('Error fetching ice growth data:', error);
-        alert('Failed to fetch ice growth data. Check console for details.');
-    }
-});
+                    const thickness = Math.max(0, initialThickness);
+                    return {
+                        date: date.toISOString().split('T')[0],
+                        growthRate: isMetric ? growthRate : convertThickness(growthRate, false),
+                        meltingRate: isMetric ? meltingRate : convertThickness(meltingRate, false),
+                        thickness: isMetric ? thickness : convertThickness(thickness, false),
+                    };
+                });
 
+                // Display ice growth data
+                forecastCards.innerHTML = iceGrowthData.map(data => `
+                    <div style="border: 1px solid #ccc; padding: 10px; margin: 10px;">
+                        <h3>${data.date}</h3>
+                        <p>Ice Growth Rate: ${data.growthRate.toFixed(2)} ${isMetric ? 'mm/day' : 'in/day'}</p>
+                        <p>Ice Melting Rate: ${data.meltingRate.toFixed(2)} ${isMetric ? 'mm/day' : 'in/day'}</p>
+                        <p>Total Thickness: ${data.thickness.toFixed(2)} ${isMetric ? 'mm' : 'in'}</p>
+                    </div>
+                `).join('');
+
+                // Prepare data for the chart
+                const labels = iceGrowthData.map(data => data.date);
+                const growthRates = iceGrowthData.map(data => data.growthRate);
+                const meltingRates = iceGrowthData.map(data => data.meltingRate);
+                const thicknesses = iceGrowthData.map(data => data.thickness);
+
+                // Destroy existing chart if it exists
+                if (iceGrowthChart) {
+                    iceGrowthChart.destroy();
+                }
 
                 // Create or update the ice growth chart
                 const ctx = document.getElementById('iceGrowthChart').getContext('2d');
