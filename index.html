@@ -209,66 +209,77 @@
                 let initialThickness = verifiedThickness || 0;
                 const initialDate = verifiedDate ? new Date(verifiedDate) : new Date(startDate);
 
-                // Map the forecast data to actual dates and get temperature
-                const iceGrowthData = dateRange.map((date, index) => {
-                    // Find the closest forecast period for the date (hourly)
+                const totalGrowthRate = (initialThickness, hourlyTemperatures) => {
+                    let totalGrowth = 0;
+                    let totalMelting = 0;
+
+                    // Iterate over hourly temperatures
+                    hourlyTemperatures.forEach(forecast => {
+                        const avgTemperature = fahrenheitToCelsius(forecast.temperature); // Convert hourly temp to Celsius
+                        const fdd = Math.max(0, (0 - avgTemperature)); // Freezing Degree Days (FDD)
+                        const pdd = Math.max(0, avgTemperature); // Positive Degree Days (PDD)
+
+                        // Growth rate (simplified Ashton formula)
+                        const growthRate = initialThickness < 76.2 // 3 inches
+                            ? Math.max(0, (avgTemperature < -1 ? 0.5 : 0) * (Math.abs(avgTemperature + 1)))
+                            : Math.max(0, 25 / (15 + initialThickness));
+
+                        // Melting rate (assumed linear relation to PDD)
+                        const meltingRate = pdd > 0 ? pdd * 0.2 : 0; // Example: 0.2 mm/°C/hour
+
+                        // Update growth and melting totals
+                        totalGrowth += growthRate;
+                        totalMelting += meltingRate;
+                    });
+
+                    return {
+                        growthRate: totalGrowth,
+                        meltingRate: totalMelting,
+                    };
+                };
+
+                const iceGrowthData = [];
+
+                dateRange.forEach(date => {
+                    // Find the hourly forecast periods for the current date
                     const hourlyTemperatures = forecastData.filter(forecast => {
                         const forecastDate = new Date(forecast.startTime);
                         return forecastDate.toISOString().split('T')[0] === date.toISOString().split('T')[0];
                     });
 
                     if (hourlyTemperatures.length === 0) {
-                        // If no hourly temperatures found for the day, skip this date
-                        return {
+                        // If no hourly temperatures found for the date, skip
+                        iceGrowthData.push({
                             date: date.toISOString().split('T')[0],
                             growthRate: 0,
                             meltingRate: 0,
                             thickness: initialThickness,
-                        };
+                        });
+                        return;
                     }
 
-                    // Calculate the average temperature in Celsius
-                    let avgTemperature = hourlyTemperatures.reduce((sum, forecast) => {
-                        const tempCelsius = fahrenheitToCelsius(forecast.temperature); // Convert temperature
-                        return sum + tempCelsius;
-                    }, 0) / hourlyTemperatures.length;
+                    // Calculate the growth and melting rates using hourly data
+                    const { growthRate, meltingRate } = totalGrowthRate(initialThickness, hourlyTemperatures);
 
-                    // If avgTemperature is not a number, use a default value (e.g., 0)
-                    avgTemperature = isNaN(avgTemperature) ? 0 : avgTemperature;
+                    // Adjust thickness based on growth and melting rates
+                    initialThickness += growthRate - meltingRate;
+                    initialThickness = Math.max(0, initialThickness); // Prevent negative thickness
 
-                    const fdd = Math.max(0, (0 - avgTemperature)); // Freezing Degree Days
-                    const pdd = Math.max(0, avgTemperature); // Positive Degree Days
-
-                    // Growth rate (simplified Ashton formula)
-                    const growthRate = initialThickness < 76.2 // 3 inches
-                        ? Math.max(0, (avgTemperature < -1 ? 0.5 : 0) * (Math.abs(avgTemperature + 1)))
-                        : Math.max(0, 25 / (15 + initialThickness));
-
-                    // Melting rate (assumed linear relation to PDD)
-                    const meltingRate = pdd > 0 ? pdd * 0.2 : 0; // Example: 0.2 mm/°C/day
-
-                    // Adjust thickness based on date
-                    if (date >= initialDate) {
-                        initialThickness += (growthRate - meltingRate);
-                    } else {
-                        initialThickness -= meltingRate; // Estimate thinning for previous dates
-                    }
-
-                    const thickness = Math.max(0, initialThickness);
-                    return {
+                    // Push calculated data to iceGrowthData
+                    iceGrowthData.push({
                         date: date.toISOString().split('T')[0],
-                        growthRate: isMetric ? growthRate : convertThickness(growthRate, false),
-                        meltingRate: isMetric ? meltingRate : convertThickness(meltingRate, false),
-                        thickness: isMetric ? thickness : convertThickness(thickness, false),
-                    };
+                        growthRate: isMetric ? growthRate : convertThickness(growthRate, false), // Convert units if needed
+                        meltingRate: isMetric ? meltingRate : convertThickness(meltingRate, false), // Convert units if needed
+                        thickness: isMetric ? initialThickness : convertThickness(initialThickness, false), // Convert units if needed
+                    });
                 });
 
-                // Display ice growth data
+                // Display the data and update the chart
                 forecastCards.innerHTML = iceGrowthData.map(data => `
                     <div style="border: 1px solid #ccc; padding: 10px; margin: 10px;">
                         <h3>${data.date}</h3>
-                        <p>Ice Growth Rate: ${data.growthRate.toFixed(2)} ${isMetric ? 'mm/day' : 'in/day'}</p>
-                        <p>Ice Melting Rate: ${data.meltingRate.toFixed(2)} ${isMetric ? 'mm/day' : 'in/day'}</p>
+                        <p>Ice Growth Rate: ${data.growthRate.toFixed(2)} ${isMetric ? 'mm/hour' : 'in/hour'}</p>
+                        <p>Ice Melting Rate: ${data.meltingRate.toFixed(2)} ${isMetric ? 'mm/hour' : 'in/hour'}</p>
                         <p>Total Thickness: ${data.thickness.toFixed(2)} ${isMetric ? 'mm' : 'in'}</p>
                     </div>
                 `).join('');
@@ -292,14 +303,14 @@
                         labels: labels,
                         datasets: [
                             {
-                                label: `Ice Growth Rate (${isMetric ? 'mm/day' : 'in/day'})`,
+                                label: `Ice Growth Rate (${isMetric ? 'mm/hour' : 'in/hour'})`,
                                 data: growthRates,
                                 borderColor: 'rgba(75, 192, 192, 1)',
                                 backgroundColor: 'rgba(75, 192, 192, 0.2)',
                                 fill: true,
                             },
                             {
-                                label: `Ice Melting Rate (${isMetric ? 'mm/day' : 'in/day'})`,
+                                label: `Ice Melting Rate (${isMetric ? 'mm/hour' : 'in/hour'})`,
                                 data: meltingRates,
                                 borderColor: 'rgba(192, 192, 75, 1)',
                                 backgroundColor: 'rgba(192, 192, 75, 0.2)',
