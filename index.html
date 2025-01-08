@@ -82,6 +82,7 @@
         const forecastCards = document.getElementById('forecast-cards');
         let marker;
         let isMetric = true; // Default unit is Metric
+        let iceGrowthChart; // Reference to the Chart.js instance
 
         const toggleUnits = (metric) => {
             isMetric = metric;
@@ -233,9 +234,14 @@
                 const meltingRates = iceGrowthData.map(data => data.meltingRate);
                 const thicknesses = iceGrowthData.map(data => data.thickness);
 
+                // Destroy existing chart if it exists
+                if (iceGrowthChart) {
+                    iceGrowthChart.destroy();
+                }
+
                 // Create or update the ice growth chart
                 const ctx = document.getElementById('iceGrowthChart').getContext('2d');
-                new Chart(ctx, {
+                iceGrowthChart = new Chart(ctx, {
                     type: 'line',
                     data: {
                         labels: labels,
