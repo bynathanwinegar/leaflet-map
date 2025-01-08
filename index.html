@@ -157,8 +157,8 @@
 
                     const airTemp = fahrenheitToCelsius(weatherData.temperature);
                     const windSpeed = parseFloat(weatherData.windSpeed.split(' ')[0]);
-                    const humidity = weatherData.relativeHumidity.value;
-                    const cloudCover = 1 - (weatherData.probabilityOfPrecipitation.value / 100);
+                    const humidity = weatherData.relativeHumidity.value || 0;
+                    const cloudCover = 1 - (weatherData.probabilityOfPrecipitation.value || 0) / 100;
 
                     const adjustedFreezingPotential = freezingTemp - airTemp - (weatherData.solarRadiation * (1 - cloudCover) * 0.0001);
                     if (adjustedFreezingPotential <= 0) {
@@ -182,6 +182,7 @@
 
                 const iceGrowthData = [];
                 const hourlyData = [];
+                let totalThickness = verifiedThickness;
 
                 for (let day = 0; day <= 6; day++) {
                     const date = new Date(today);
@@ -204,18 +205,19 @@
                         const weatherData = {
                             temperature: forecast.temperature,
                             windSpeed: forecast.windSpeed,
-                            relativeHumidity: forecast.relativeHumidity,
-                            probabilityOfPrecipitation: forecast.probabilityOfPrecipitation,
+                            relativeHumidity: forecast.relativeHumidity || { value: 0 },
+                            probabilityOfPrecipitation: forecast.probabilityOfPrecipitation || { value: 0 },
                             solarRadiation: 0,
                         };
-                        const growthRate = calculateIceGrowth(weatherData, verifiedThickness, 1);
+                        const growthRate = calculateIceGrowth(weatherData, totalThickness, 1);
+                        totalThickness += growthRate;
                         return {
                             time: new Date(forecast.startTime).toISOString().split('T')[1].split(':')[0],
                             growthRate: isMetric ? growthRate : convertThickness(growthRate, false),
                             temperature: weatherData.temperature,
                             windSpeed: weatherData.windSpeed,
-                            relativeHumidity: weatherData.relativeHumidity,
-                            probabilityOfPrecipitation: weatherData.probabilityOfPrecipitation,
+                            relativeHumidity: weatherData.relativeHumidity.value,
+                            probabilityOfPrecipitation: weatherData.probabilityOfPrecipitation.value,
                         };
                     });
 
@@ -247,6 +249,10 @@
                 const windSpeeds = hourlyData.map(data => data.windSpeed);
                 const humidities = hourlyData.map(data => data.relativeHumidity);
                 const precipitations = hourlyData.map(data => data.probabilityOfPrecipitation);
+                const totalThicknesses = hourlyData.reduce((acc, data, index) => {
+                    if (index === 0) return [totalThickness];
+                    return [...acc, acc[acc.length - 1] + data.growthRate];
+                }, []);
 
                 if (iceGrowthChart) {
                     iceGrowthChart.destroy();
@@ -291,6 +297,13 @@
                                 data: precipitations,
                                 borderColor: 'rgba(255, 159, 64, 1)',
                                 backgroundColor: 'rgba(255, 159, 64, 0.2)',
+                                fill: true,
+                            },
+                            {
+                                label: `Total Thickness (${isMetric ? 'mm' : 'in'})`,
+                                data: totalThicknesses,
+                                borderColor: 'rgba(0, 0, 0, 1)',
+                                backgroundColor: 'rgba(0, 0, 0, 0.2)',
                                 fill: true,
                             }
                         ]
