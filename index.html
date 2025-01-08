@@ -181,6 +181,7 @@
                 };
 
                 const iceGrowthData = [];
+                const hourlyData = [];
 
                 for (let day = 0; day <= 6; day++) {
                     const date = new Date(today);
@@ -194,14 +195,12 @@
                     if (hourlyForecast.length === 0) {
                         iceGrowthData.push({
                             date: date.toISOString().split('T')[0],
-                            growthRate: 0,
-                            meltingRate: 0,
-                            thickness: verifiedThickness,
+                            hourly: []
                         });
                         continue;
                     }
 
-                    const growthRate = hourlyForecast.reduce((acc, forecast) => {
+                    const hourlyGrowthData = hourlyForecast.map(forecast => {
                         const weatherData = {
                             temperature: forecast.temperature,
                             windSpeed: forecast.windSpeed,
@@ -209,30 +208,45 @@
                             probabilityOfPrecipitation: forecast.probabilityOfPrecipitation,
                             solarRadiation: 0,
                         };
-                        return calculateIceGrowth(weatherData, acc, 1);
-                    }, verifiedThickness);
+                        const growthRate = calculateIceGrowth(weatherData, verifiedThickness, 1);
+                        return {
+                            time: new Date(forecast.startTime).toISOString().split('T')[1].split(':')[0],
+                            growthRate: isMetric ? growthRate : convertThickness(growthRate, false),
+                            temperature: weatherData.temperature,
+                            windSpeed: weatherData.windSpeed,
+                            relativeHumidity: weatherData.relativeHumidity,
+                            probabilityOfPrecipitation: weatherData.probabilityOfPrecipitation,
+                        };
+                    });
+
+                    hourlyData.push(...hourlyGrowthData);
 
                     iceGrowthData.push({
                         date: date.toISOString().split('T')[0],
-                        growthRate: isMetric ? growthRate : convertThickness(growthRate, false),
-                        meltingRate: 0,
-                        thickness: isMetric ? growthRate : convertThickness(growthRate, false),
+                        hourly: hourlyGrowthData
                     });
                 }
 
                 forecastCards.innerHTML = iceGrowthData.map(data => `
                     <div style="border: 1px solid #ccc; padding: 10px; margin: 10px;">
                         <h3>${data.date}</h3>
-                        <p>Ice Growth Rate: ${data.growthRate.toFixed(2)} ${isMetric ? 'mm/hour' : 'in/hour'}</p>
-                        <p>Ice Melting Rate: ${data.meltingRate.toFixed(2)} ${isMetric ? 'mm/hour' : 'in/hour'}</p>
-                        <p>Total Thickness: ${data.thickness.toFixed(2)} ${isMetric ? 'mm' : 'in'}</p>
+                        ${data.hourly.map(hour => `
+                            <p>Time: ${hour.time}:00</p>
+                            <p>Ice Growth Rate: ${hour.growthRate.toFixed(2)} ${isMetric ? 'mm/hour' : 'in/hour'}</p>
+                            <p>Temperature: ${hour.temperature} °F</p>
+                            <p>Wind Speed: ${hour.windSpeed}</p>
+                            <p>Relative Humidity: ${hour.relativeHumidity}%</p>
+                            <p>Probability of Precipitation: ${hour.probabilityOfPrecipitation}%</p>
+                        `).join('')}
                     </div>
                 `).join('');
 
-                const labels = iceGrowthData.map(data => data.date);
-                const growthRates = iceGrowthData.map(data => data.growthRate);
-                const meltingRates = iceGrowthData.map(data => data.meltingRate);
-                const thicknesses = iceGrowthData.map(data => data.thickness);
+                const labels = hourlyData.map(data => `${data.time}:00`);
+                const growthRates = hourlyData.map(data => data.growthRate);
+                const temperatures = hourlyData.map(data => data.temperature);
+                const windSpeeds = hourlyData.map(data => data.windSpeed);
+                const humidities = hourlyData.map(data => data.relativeHumidity);
+                const precipitations = hourlyData.map(data => data.probabilityOfPrecipitation);
 
                 if (iceGrowthChart) {
                     iceGrowthChart.destroy();
@@ -252,17 +266,31 @@
                                 fill: true,
                             },
                             {
-                                label: `Ice Melting Rate (${isMetric ? 'mm/hour' : 'in/hour'})`,
-                                data: meltingRates,
-                                borderColor: 'rgba(192, 192, 75, 1)',
-                                backgroundColor: 'rgba(192, 192, 75, 0.2)',
+                                label: 'Temperature (°F)',
+                                data: temperatures,
+                                borderColor: 'rgba(255, 99, 132, 1)',
+                                backgroundColor: 'rgba(255, 99, 132, 0.2)',
                                 fill: true,
                             },
                             {
-                                label: `Total Thickness (${isMetric ? 'mm' : 'in'})`,
-                                data: thicknesses,
-                                borderColor: 'rgba(192, 75, 75, 1)',
-                                backgroundColor: 'rgba(192, 75, 75, 0.2)',
+                                label: 'Wind Speed',
+                                data: windSpeeds,
+                                borderColor: 'rgba(54, 162, 235, 1)',
+                                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                                fill: true,
+                            },
+                            {
+                                label: 'Relative Humidity (%)',
+                                data: humidities,
+                                borderColor: 'rgba(153, 102, 255, 1)',
+                                backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                                fill: true,
+                            },
+                            {
+                                label: 'Probability of Precipitation (%)',
+                                data: precipitations,
+                                borderColor: 'rgba(255, 159, 64, 1)',
+                                backgroundColor: 'rgba(255, 159, 64, 0.2)',
                                 fill: true,
                             }
                         ]
