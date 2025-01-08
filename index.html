@@ -34,10 +34,14 @@
         <label for="end-date">End Date:</label>
         <input type="date" id="end-date">
         <br><br>
-        <label for="verified-thickness">Verified Ice Thickness (mm):</label>
+        <label for="verified-thickness">Verified Ice Thickness:</label>
         <input type="number" id="verified-thickness" placeholder="e.g., 50">
         <label for="verified-date">Date of Measurement:</label>
         <input type="date" id="verified-date">
+        <br><br>
+        <label for="unit-toggle">Units:</label>
+        <input type="range" id="unit-toggle" min="0" max="1" step="1"> 
+        <span id="unit-label">Metric</span>
         <br><br>
         <button id="fetch-weather">Fetch Ice Growth Data</button>
     </div>
@@ -61,8 +65,21 @@
         const endDateInput = document.getElementById('end-date');
         const verifiedThicknessInput = document.getElementById('verified-thickness');
         const verifiedDateInput = document.getElementById('verified-date');
+        const unitToggle = document.getElementById('unit-toggle');
+        const unitLabel = document.getElementById('unit-label');
         const forecastCards = document.getElementById('forecast-cards');
         let marker;
+        let isMetric = true; // Default unit is Metric
+
+        unitToggle.addEventListener('input', () => {
+            isMetric = unitToggle.value === '0';
+            unitLabel.textContent = isMetric ? 'Metric' : 'Imperial';
+            verifiedThicknessInput.placeholder = isMetric ? 'e.g., 50' : 'e.g., 2';
+        });
+
+        const convertThickness = (value, toMetric) => {
+            return toMetric ? value * 25.4 : value / 25.4; // Convert between inches and millimeters
+        };
 
         map.on('click', (e) => {
             selectedLatLng = e.latlng;
@@ -104,7 +121,7 @@
 
             const startDate = startDateInput.value;
             const endDate = endDateInput.value;
-            const verifiedThickness = parseFloat(verifiedThicknessInput.value);
+            let verifiedThickness = parseFloat(verifiedThicknessInput.value);
             const verifiedDate = verifiedDateInput.value;
 
             if (!startDate || !endDate) {
@@ -115,6 +132,10 @@
             if (new Date(startDate) > new Date(endDate)) {
                 alert('Start date must be before end date.');
                 return;
+            }
+
+            if (!isMetric && !isNaN(verifiedThickness)) {
+                verifiedThickness = convertThickness(verifiedThickness, true); // Convert to Metric if input is Imperial
             }
 
             try {
@@ -155,11 +176,12 @@
                         initialThickness -= meltingRate; // Estimate thinning for previous dates
                     }
 
+                    const thickness = Math.max(0, initialThickness);
                     return {
                         date: date.toISOString().split('T')[0],
-                        growthRate,
-                        meltingRate,
-                        thickness: Math.max(0, initialThickness),
+                        growthRate: isMetric ? growthRate : convertThickness(growthRate, false),
+                        meltingRate: isMetric ? meltingRate : convertThickness(meltingRate, false),
+                        thickness: isMetric ? thickness : convertThickness(thickness, false),
                     };
                 });
 
@@ -167,9 +189,9 @@
                 forecastCards.innerHTML = iceGrowthData.map(data => `
                     <div style="border: 1px solid #ccc; padding: 10px; margin: 10px;">
                         <h3>${data.date}</h3>
-                        <p>Ice Growth Rate: ${data.growthRate.toFixed(2)} mm/day</p>
-                        <p>Ice Melting Rate: ${data.meltingRate.toFixed(2)} mm/day</p>
-                        <p>Total Thickness: ${data.thickness.toFixed(2)} mm</p>
+                        <p>Ice Growth Rate: ${data.growthRate.toFixed(2)} ${isMetric ? 'mm/day' : 'in/day'}</p>
+                        <p>Ice Melting Rate: ${data.meltingRate.toFixed(2)} ${isMetric ? 'mm/day' : 'in/day'}</p>
+                        <p>Total Thickness: ${data.thickness.toFixed(2)} ${isMetric ? 'mm' : 'in'}</p>
                     </div>
                 `).join('');
 
@@ -187,21 +209,21 @@
                         labels: labels,
                         datasets: [
                             {
-                                label: 'Ice Growth Rate (mm/day)',
+                                label: `Ice Growth Rate (${isMetric ? 'mm/day' : 'in/day'})`,
                                 data: growthRates,
                                 borderColor: 'rgba(75, 192, 192, 1)',
                                 backgroundColor: 'rgba(75, 192, 192, 0.2)',
                                 fill: true,
                             },
                             {
-                                label: 'Ice Melting Rate (mm/day)',
+                                label: `Ice Melting Rate (${isMetric ? 'mm/day' : 'in/day'})`,
                                 data: meltingRates,
                                 borderColor: 'rgba(192, 192, 75, 1)',
                                 backgroundColor: 'rgba(192, 192, 75, 0.2)',
                                 fill: true,
                             },
                             {
-                                label: 'Total Thickness (mm)',
+                                label: `Total Thickness (${isMetric ? 'mm' : 'in'})`,
                                 data: thicknesses,
                                 borderColor: 'rgba(192, 75, 75, 1)',
                                 backgroundColor: 'rgba(192, 75, 75, 0.2)',
