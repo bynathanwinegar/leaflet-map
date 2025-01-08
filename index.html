@@ -38,6 +38,10 @@
     <h1>Ice Growth Forecast Tool</h1>
     <div id="map"></div>
     <div id="controls">
+        <label for="search-location">Search Location:</label>
+        <input type="text" id="search-location" placeholder="Enter a location" style="width: 300px;">
+        <button id="search-button">Search</button>
+        <br><br>
         <label for="coordinates">Coordinates:</label>
         <input type="text" id="coordinates" placeholder="Latitude, Longitude" style="width: 300px;">
         <br><br>
@@ -73,6 +77,8 @@
 
         let selectedLatLng;
         const coordinatesInput = document.getElementById('coordinates');
+        const searchLocationInput = document.getElementById('search-location');
+        const searchButton = document.getElementById('search-button');
         const startDateInput = document.getElementById('start-date');
         const endDateInput = document.getElementById('end-date');
         const verifiedThicknessInput = document.getElementById('verified-thickness');
@@ -143,6 +149,46 @@
                 map.setView(selectedLatLng, map.getZoom());
             } else {
                 alert('Invalid coordinates. Please enter in the format: Latitude, Longitude');
+            }
+        });
+
+        searchButton.addEventListener('click', async () => {
+            const location = searchLocationInput.value;
+            if (!location) {
+                alert('Please enter a location.');
+                return;
+            }
+
+            try {
+                const response = await axios.get('https://nominatim.openstreetmap.org/search', {
+                    params: {
+                        q: location,
+                        format: 'json',
+                        limit: 1
+                    }
+                });
+
+                if (response.data.length === 0) {
+                    alert('Location not found. Please try a different search term.');
+                    return;
+                }
+
+                const { lat, lon } = response.data[0];
+                selectedLatLng = { lat: parseFloat(lat), lng: parseFloat(lon) };
+
+                // Update the map view and coordinates input
+                map.setView(selectedLatLng, 10);
+                coordinatesInput.value = `${lat}, ${lon}`;
+
+                // Add or move the marker
+                if (marker) {
+                    marker.setLatLng(selectedLatLng);
+                } else {
+                    marker = L.marker(selectedLatLng).addTo(map);
+                }
+            } catch (error) {
+                console.error('Error fetching location data:', error);
+                alert('Failed to fetch location data. Check console for details.');
             }
         });
 
