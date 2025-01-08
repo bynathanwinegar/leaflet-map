@@ -122,8 +122,8 @@
                 const endDateObj = new Date(today);
                 endDateObj.setDate(today.getDate() + 6);
 
-                // New simplified ice growth prediction logic
-                const calculateIceGrowthComplex = (weatherData, initialThickness, timeDurationHours) => {
+                // Updated ice growth prediction logic to calculate each hour's growth independently
+                const calculateIceGrowth = (weatherData) => {
                     // Constants
                     const k = 2.2; // Thermal conductivity of ice (W/m°C)
                     const rho = 917; // Density of ice (kg/m³)
@@ -140,26 +140,20 @@
                     // Calculate heat transfer coefficient H_ia
                     const H_ia = H0 + alpha * v;
 
-                    // Time step for integration (1 hour in seconds)
-                    const timeStepSeconds = 3600; // 1 hour in seconds
-                    const totalSteps = Math.ceil(timeDurationHours); // Total time steps
-                    let thickness = initialThickness; // Initialize thickness
+                    // Determine surface temperature (T_s)
+                    const T_s = (H_ia * T_a + k * T_m) / (H_ia + k);
 
-                    for (let step = 0; step < totalSteps; step++) {
-                        // Determine surface temperature (T_s)
-                        const T_s = (H_ia * T_a + (k / Math.max(thickness, 0.001)) * T_m) / (H_ia + (k / Math.max(thickness, 0.001)));
-
-                        // Determine growth regime
-                        if (thickness < h_threshold) {
-                            // Linear growth for thin ice
-                            thickness += (H_ia * (T_m - T_a) * (timeStepSeconds / 3600)) / (rho * L * (H_ia + (k / Math.max(thickness, 0.001))));
-                        } else {
-                            // Square-root growth for thick ice
-                            thickness += Math.sqrt((2 * k * (T_m - T_a) * (timeStepSeconds / 3600)) / (rho * L));
-                        }
+                    // Calculate hourly ice growth
+                    let growthRate;
+                    if (0 < h_threshold) {
+                        // Linear growth for thin ice
+                        growthRate = (H_ia * (T_m - T_a) * (3600 / 3600)) / (rho * L * (H_ia + k));
+                    } else {
+                        // Square-root growth for thick ice
+                        growthRate = Math.sqrt((2 * k * (T_m - T_a) * (3600 / 3600)) / (rho * L));
                     }
 
-                    return thickness;
+                    return growthRate;
                 };
 
                 const iceGrowthData = [];
@@ -191,7 +185,7 @@
                             solarRadiation: 0, // Placeholder, adjust as necessary
                             cloudCover: 1 - (forecast.probabilityOfPrecipitation.value || 0) / 100,
                         };
-                        const growthRate = calculateIceGrowthComplex(weatherData, totalThickness, 1);
+                        const growthRate = calculateIceGrowth(weatherData);
                         totalThickness += growthRate;
                         return {
                             time: new Date(forecast.startTime).toISOString().split('T')[1].split(':')[0],
@@ -231,9 +225,8 @@
                 const windSpeeds = hourlyData.map(data => data.windSpeed);
                 const humidities = hourlyData.map(data => data.relativeHumidity);
                 const precipitations = hourlyData.map(data => data.probabilityOfPrecipitation);
-                const totalThicknesses = hourlyData.reduce((acc, data, index) => {
-                    if (index === 0) return [totalThickness];
-                    return [...acc, acc[acc.length - 1] + data.growthRate];
+                const totalThicknesses = hourlyData.reduce((acc, data) => {
+                    return [...acc, acc.length ? acc[acc.length - 1] + data.growthRate : data.growthRate];
                 }, []);
 
                 if (iceGrowthChart) {
