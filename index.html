@@ -155,7 +155,7 @@
                     const C = 0.0005;
                     const thresholdThickness = 0.1;
 
-                    const airTemp = weatherData.temperature;
+                    const airTemp = fahrenheitToCelsius(weatherData.temperature);
                     const windSpeed = parseFloat(weatherData.windSpeed.split(' ')[0]);
                     const humidity = weatherData.relativeHumidity.value;
                     const cloudCover = 1 - (weatherData.probabilityOfPrecipitation.value / 100);
@@ -203,11 +203,11 @@
 
                     const growthRate = hourlyForecast.reduce((acc, forecast) => {
                         const weatherData = {
-                            temperature: fahrenheitToCelsius(forecast.temperature),
+                            temperature: forecast.temperature,
                             windSpeed: forecast.windSpeed,
                             relativeHumidity: forecast.relativeHumidity,
                             probabilityOfPrecipitation: forecast.probabilityOfPrecipitation,
-                            solarRadiation: 0, // Assuming solarRadiation is not provided in the response
+                            solarRadiation: 0,
                         };
                         return calculateIceGrowth(weatherData, acc, 1);
                     }, verifiedThickness);
