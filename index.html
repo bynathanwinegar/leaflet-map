@@ -28,13 +28,6 @@
         <label for="coordinates">Coordinates:</label>
         <input type="text" id="coordinates" placeholder="Latitude, Longitude" style="width: 300px;">
         <br><br>
-        <label for="verified-thickness">Verified Ice Thickness:</label>
-        <input type="number" id="verified-thickness" placeholder="Inches">
-        <label for="verified-date">Date of Measurement:</label>
-        <input type="date" id="verified-date">
-        <label for="verified-time">Time of Measurement:</label>
-        <input type="time" id="verified-time">
-        <br><br>
         <label>Units:</label>
         <div id="unit-toggle" class="toggle-button">Metric</div>
         <div id="unit-toggle-imperial" class="toggle-button active">Imperial</div>
@@ -57,9 +50,6 @@
         const coordinatesInput = document.getElementById('coordinates');
         const searchLocationInput = document.getElementById('search-location');
         const searchButton = document.getElementById('search-button');
-        const verifiedThicknessInput = document.getElementById('verified-thickness');
-        const verifiedDateInput = document.getElementById('verified-date');
-        const verifiedTimeInput = document.getElementById('verified-time');
         const unitToggleMetric = document.getElementById('unit-toggle');
         const unitToggleImperial = document.getElementById('unit-toggle-imperial');
         const forecastCards = document.getElementById('forecast-cards');
@@ -71,7 +61,6 @@
             isMetric = metric;
             unitToggleMetric.classList.toggle('active', metric);
             unitToggleImperial.classList.toggle('active', !metric);
-            verifiedThicknessInput.placeholder = isMetric ? 'Centimeters' : 'Inches';
 
             const forecastDivs = forecastCards.querySelectorAll('div');
             forecastDivs.forEach(div => {
@@ -122,22 +111,6 @@
                 return;
             }
 
-            let verifiedThickness = parseFloat(verifiedThicknessInput.value);
-            const verifiedDate = verifiedDateInput.value;
-            const verifiedTime = verifiedTimeInput.value;
-
-            if (!isMetric && !isNaN(verifiedThickness)) {
-                verifiedThickness = convertThickness(verifiedThickness, true);
-            }
-
-            let verifiedDateTime = new Date(verifiedDate);
-            if (verifiedTime) {
-                const [hours, minutes] = verifiedTime.split(":");
-                verifiedDateTime.setHours(hours, minutes);
-            } else {
-                verifiedDateTime = new Date();
-            }
-
             try {
                 const { lat, lng } = selectedLatLng;
                 const weatherResponse = await axios.get(`https://api.weather.gov/points/${lat},${lng}`);
@@ -149,39 +122,40 @@
                 const endDateObj = new Date(today);
                 endDateObj.setDate(today.getDate() + 6);
 
-                // New ice growth prediction logic based on provided script
-                const calculateIceGrowth = (weatherData, initialThickness, timeDurationHours) => {
-                    const freezingTemp = 0; // Freezing point of water (Celsius)
-                    const k = 0.001; // Thermal resistance coefficient (thin ice)
-                    const C = 0.0005; // Empirical constant (thick ice)
-                    const thresholdThickness = 0.1; // Transition threshold in meters (adjust as needed)
+                // New simplified ice growth prediction logic
+                const calculateIceGrowthComplex = (weatherData, initialThickness, timeDurationHours) => {
+                    // Constants
+                    const k = 2.2; // Thermal conductivity of ice (W/m°C)
+                    const rho = 917; // Density of ice (kg/m³)
+                    const L = 334000; // Heat of fusion for ice (J/kg)
+                    const T_m = 0; // Freezing temperature of water (°C)
+                    const H0 = 10; // Baseline heat transfer coefficient for still air (W/m²°C)
+                    const alpha = 1.5; // Wind factor for heat transfer (W/m²°C per m/s)
+                    const h_threshold = 0.1; // Transition thickness between linear and square-root growth (m)
 
                     // Extract weather variables
-                    const airTemp = weatherData.airTemp; // Air temperature (Celsius)
-                    const windSpeed = weatherData.windSpeed; // Wind speed (m/s)
-                    const humidity = weatherData.humidity; // Relative humidity (%)
-                    const solarRadiation = weatherData.solarRadiation; // Solar radiation (W/m^2)
-                    const cloudCover = weatherData.cloudCover; // Cloud cover (fraction, 0 to 1)
+                    const T_a = weatherData.airTemp; // Air temperature (°C)
+                    const v = weatherData.windSpeed; // Wind speed (m/s)
 
-                    // Adjusted freezing potential considering solar radiation and cloud cover
-                    const adjustedFreezingPotential = freezingTemp - airTemp - (solarRadiation * (1 - cloudCover) * 0.0001);
-                    if (adjustedFreezingPotential <= 0) {
-                        return initialThickness; // No freezing occurs if the adjusted potential is non-negative
-                    }
+                    // Calculate heat transfer coefficient H_ia
+                    const H_ia = H0 + alpha * v;
 
                     // Time step for integration (1 hour in seconds)
-                    const timeStepSeconds = 3600; // 1 hour
-                    const totalSteps = Math.ceil(timeDurationHours);
-                    let thickness = initialThickness;
+                    const timeStepSeconds = 3600; // 1 hour in seconds
+                    const totalSteps = Math.ceil(timeDurationHours); // Total time steps
+                    let thickness = initialThickness; // Initialize thickness
 
                     for (let step = 0; step < totalSteps; step++) {
-                        // Determine growth regime (thin vs thick ice)
-                        if (thickness < thresholdThickness) {
+                        // Determine surface temperature (T_s)
+                        const T_s = (H_ia * T_a + (k / Math.max(thickness, 0.001)) * T_m) / (H_ia + (k / Math.max(thickness, 0.001)));
+
+                        // Determine growth regime
+                        if (thickness < h_threshold) {
                             // Linear growth for thin ice
-                            thickness += k * adjustedFreezingPotential * (timeStepSeconds / 3600);
+                            thickness += (H_ia * (T_m - T_a) * (timeStepSeconds / 3600)) / (rho * L * (H_ia + (k / Math.max(thickness, 0.001))));
                         } else {
-                            // Square-root growth for thicker ice
-                            thickness += Math.sqrt(2 * C * adjustedFreezingPotential * (timeStepSeconds / 3600));
+                            // Square-root growth for thick ice
+                            thickness += Math.sqrt((2 * k * (T_m - T_a) * (timeStepSeconds / 3600)) / (rho * L));
                         }
                     }
 
@@ -190,7 +164,7 @@
 
                 const iceGrowthData = [];
                 const hourlyData = [];
-                let totalThickness = verifiedThickness;
+                let totalThickness = 0.05; // Initial ice thickness in meters (5 cm)
 
                 for (let day = 0; day <= 6; day++) {
                     const date = new Date(today);
@@ -217,7 +191,7 @@
                             solarRadiation: 0, // Placeholder, adjust as necessary
                             cloudCover: 1 - (forecast.probabilityOfPrecipitation.value || 0) / 100,
                         };
-                        const growthRate = calculateIceGrowth(weatherData, totalThickness, 1);
+                        const growthRate = calculateIceGrowthComplex(weatherData, totalThickness, 1);
                         totalThickness += growthRate;
                         return {
                             time: new Date(forecast.startTime).toISOString().split('T')[1].split(':')[0],
