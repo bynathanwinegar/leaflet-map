@@ -50,7 +50,7 @@
     </div>
 
     <script>
-        const map = L.map('map').setView([42.821878, -112.403065], 30); // Default to Edson Fichter Pond
+        const map = L.map('map').setView([42.821878, -112.403065], 30);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
         let selectedLatLng;
@@ -64,8 +64,8 @@
         const unitToggleImperial = document.getElementById('unit-toggle-imperial');
         const forecastCards = document.getElementById('forecast-cards');
         let marker;
-        let isMetric = true; // Default unit is Metric
-        let iceGrowthChart; // Reference to the Chart.js instance
+        let isMetric = true;
+        let iceGrowthChart;
 
         const toggleUnits = (metric) => {
             isMetric = metric;
@@ -73,7 +73,6 @@
             unitToggleImperial.classList.toggle('active', !metric);
             verifiedThicknessInput.placeholder = isMetric ? 'Centimeters' : 'Inches';
 
-            // Update displayed results without refetching
             const forecastDivs = forecastCards.querySelectorAll('div');
             forecastDivs.forEach(div => {
                 const paragraphs = div.querySelectorAll('p');
@@ -93,40 +92,24 @@
         unitToggleMetric.addEventListener('click', () => toggleUnits(true));
         unitToggleImperial.addEventListener('click', () => toggleUnits(false));
 
-        const convertThickness = (value, toMetric) => {
-            return toMetric ? value * 25.4 : value / 25.4; // Convert between inches and millimeters
-        };
+        const convertThickness = (value, toMetric) => toMetric ? value * 25.4 : value / 25.4;
 
-        const fahrenheitToCelsius = (fahrenheit) => {
-            return (fahrenheit - 32) * 5 / 9;
-        };
+        const fahrenheitToCelsius = (fahrenheit) => (fahrenheit - 32) * 5 / 9;
 
         map.on('click', (e) => {
             selectedLatLng = e.latlng;
             const { lat, lng } = selectedLatLng;
-
-            // Update the coordinates input box
             coordinatesInput.value = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-
-            // Add or move the marker
-            if (marker) {
-                marker.setLatLng(selectedLatLng);
-            } else {
-                marker = L.marker(selectedLatLng).addTo(map);
-            }
+            if (marker) marker.setLatLng(selectedLatLng);
+            else marker = L.marker(selectedLatLng).addTo(map);
         });
 
         coordinatesInput.addEventListener('change', () => {
             const coords = coordinatesInput.value.split(',').map(c => parseFloat(c.trim()));
             if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
                 selectedLatLng = { lat: coords[0], lng: coords[1] };
-
-                // Move the marker and center the map
-                if (marker) {
-                    marker.setLatLng(selectedLatLng);
-                } else {
-                    marker = L.marker(selectedLatLng).addTo(map);
-                }
+                if (marker) marker.setLatLng(selectedLatLng);
+                else marker = L.marker(selectedLatLng).addTo(map);
                 map.setView(selectedLatLng, map.getZoom());
             } else {
                 alert('Invalid coordinates. Please enter in the format: Latitude, Longitude');
@@ -141,30 +124,24 @@
 
             let verifiedThickness = parseFloat(verifiedThicknessInput.value);
             const verifiedDate = verifiedDateInput.value;
-            const verifiedTime = verifiedTimeInput.value; // Get the time input
+            const verifiedTime = verifiedTimeInput.value;
 
             if (!isMetric && !isNaN(verifiedThickness)) {
-                verifiedThickness = convertThickness(verifiedThickness, true); // Convert to Metric if input is Imperial
+                verifiedThickness = convertThickness(verifiedThickness, true);
             }
 
-            // If a time is selected for the verified thickness, include it in the date
             let verifiedDateTime = new Date(verifiedDate);
             if (verifiedTime) {
                 const [hours, minutes] = verifiedTime.split(":");
                 verifiedDateTime.setHours(hours, minutes);
             } else {
-                // Use current date if no time is selected
                 verifiedDateTime = new Date();
             }
 
             try {
                 const { lat, lng } = selectedLatLng;
-
-                // Fetch weather data from Weather.gov API (National Weather Service) for hourly forecast
                 const weatherResponse = await axios.get(`https://api.weather.gov/points/${lat},${lng}`);
-                const forecastUrl = weatherResponse.data.properties.forecastHourly; // Fetch hourly data
-                
-                // Fetch hourly forecast data
+                const forecastUrl = weatherResponse.data.properties.forecastHourly;
                 const forecastResponse = await axios.get(forecastUrl);
                 const forecastData = forecastResponse.data.properties.periods;
 
@@ -172,47 +149,36 @@
                 const endDateObj = new Date(today);
                 endDateObj.setDate(today.getDate() + 6);
 
-                // Initial thickness
-                let initialThickness = verifiedThickness || 0;
-                const initialDate = verifiedDateTime;
+                const calculateIceGrowth = (weatherData, initialThickness, timeDurationHours) => {
+                    const freezingTemp = 0;
+                    const k = 0.001;
+                    const C = 0.0005;
+                    const thresholdThickness = 0.1;
 
-                const totalGrowthRate = (initialThickness, hourlyTemperatures) => {
-                    let totalGrowth = 0;
-                    let totalMelting = 0;
+                    const airTemp = weatherData.airTemp;
+                    const windSpeed = weatherData.windSpeed;
+                    const humidity = weatherData.humidity;
+                    const solarRadiation = weatherData.solarRadiation;
+                    const cloudCover = weatherData.cloudCover;
 
-                    // Iterate over hourly temperatures (calculate for each day)
-                    hourlyTemperatures.forEach((forecast, index) => {
-                        const avgTemperature = fahrenheitToCelsius(forecast.temperature); // Convert hourly temp to Celsius
-                        const fdd = Math.max(0, (0 - avgTemperature)); // Freezing Degree Days (FDD)
-                        const pdd = Math.max(0, avgTemperature); // Positive Degree Days (PDD)
+                    const adjustedFreezingPotential = freezingTemp - airTemp - (solarRadiation * (1 - cloudCover) * 0.0001);
+                    if (adjustedFreezingPotential <= 0) {
+                        return initialThickness;
+                    }
 
-                        // Growth rate (simplified Ashton formula)
-                        const growthRate = initialThickness < 76.2 // 3 inches
-                            ? Math.max(0, (avgTemperature < -1 ? 0.5 : 0) * (Math.abs(avgTemperature + 1)))
-                            : Math.max(0, 25 / (15 + initialThickness));
+                    const timeStepSeconds = 3600;
+                    const totalSteps = Math.ceil(timeDurationHours);
+                    let thickness = initialThickness;
 
-                        // Melting rate (assumed linear relation to PDD)
-                        const meltingRate = pdd > 0 ? pdd * 0.2 : 0; // Example: 0.2 mm/°C/hour
-
-                        // Update growth and melting totals
-                        totalGrowth += growthRate;
-                        totalMelting += meltingRate;
-
-                        // If the index is the last in a day, apply the total for that day
-                        if ((index + 1) % 24 === 0) {
-                            initialThickness += totalGrowth - totalMelting;
-                            initialThickness = Math.max(0, initialThickness); // Prevent negative thickness
-
-                            // Reset totals for next day
-                            totalGrowth = 0;
-                            totalMelting = 0;
+                    for (let step = 0; step < totalSteps; step++) {
+                        if (thickness < thresholdThickness) {
+                            thickness += k * adjustedFreezingPotential * (timeStepSeconds / 3600);
+                        } else {
+                            thickness += Math.sqrt(2 * C * adjustedFreezingPotential * (timeStepSeconds / 3600));
                         }
-                    });
+                    }
 
-                    return {
-                        growthRate: totalGrowth,
-                        meltingRate: totalMelting,
-                    };
+                    return thickness;
                 };
 
                 const iceGrowthData = [];
@@ -227,33 +193,34 @@
                     });
 
                     if (hourlyForecast.length === 0) {
-                        // If no hourly temperatures found for the date, skip
                         iceGrowthData.push({
                             date: date.toISOString().split('T')[0],
                             growthRate: 0,
                             meltingRate: 0,
-                            thickness: initialThickness,
+                            thickness: verifiedThickness,
                         });
                         continue;
                     }
 
-                    // Calculate the growth and melting rates using hourly data
-                    const { growthRate, meltingRate } = totalGrowthRate(initialThickness, hourlyForecast);
+                    const growthRate = hourlyForecast.reduce((acc, forecast) => {
+                        const weatherData = {
+                            airTemp: fahrenheitToCelsius(forecast.temperature),
+                            windSpeed: forecast.windSpeed.value,
+                            humidity: forecast.relativeHumidity.value,
+                            solarRadiation: forecast.shortWaveRadiation.value,
+                            cloudCover: forecast.cloudCover.value,
+                        };
+                        return calculateIceGrowth(weatherData, acc, 1);
+                    }, verifiedThickness);
 
-                    // Adjust thickness based on growth and melting rates
-                    initialThickness += growthRate - meltingRate;
-                    initialThickness = Math.max(0, initialThickness); // Prevent negative thickness
-
-                    // Push calculated data to iceGrowthData
                     iceGrowthData.push({
                         date: date.toISOString().split('T')[0],
-                        growthRate: isMetric ? growthRate : convertThickness(growthRate, false), // Convert units if needed
-                        meltingRate: isMetric ? meltingRate : convertThickness(meltingRate, false), // Convert units if needed
-                        thickness: isMetric ? initialThickness : convertThickness(initialThickness, false), // Convert units if needed
+                        growthRate: isMetric ? growthRate : convertThickness(growthRate, false),
+                        meltingRate: 0,
+                        thickness: isMetric ? growthRate : convertThickness(growthRate, false),
                     });
                 }
 
-                // Display the data and update the chart
                 forecastCards.innerHTML = iceGrowthData.map(data => `
                     <div style="border: 1px solid #ccc; padding: 10px; margin: 10px;">
                         <h3>${data.date}</h3>
@@ -263,18 +230,15 @@
                     </div>
                 `).join('');
 
-                // Prepare data for the chart
                 const labels = iceGrowthData.map(data => data.date);
                 const growthRates = iceGrowthData.map(data => data.growthRate);
                 const meltingRates = iceGrowthData.map(data => data.meltingRate);
                 const thicknesses = iceGrowthData.map(data => data.thickness);
 
-                // Destroy existing chart if it exists
                 if (iceGrowthChart) {
                     iceGrowthChart.destroy();
                 }
 
-                // Create or update the ice growth chart
                 const ctx = document.getElementById('iceGrowthChart').getContext('2d');
                 iceGrowthChart = new Chart(ctx, {
                     type: 'line',
