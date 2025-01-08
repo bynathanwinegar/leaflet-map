@@ -57,6 +57,8 @@
         <input type="number" id="verified-thickness" placeholder="Centimeters">
         <label for="verified-date">Date of Measurement:</label>
         <input type="date" id="verified-date">
+        <label for="verified-time">Time of Measurement:</label>
+        <input type="time" id="verified-time">
         <br><br>
         <label>Units:</label>
         <div id="unit-toggle" class="toggle-button active">Metric</div>
@@ -169,6 +171,7 @@
             const endDate = endDateInput.value;
             let verifiedThickness = parseFloat(verifiedThicknessInput.value);
             const verifiedDate = verifiedDateInput.value;
+            const verifiedTime = document.getElementById('verified-time').value; // Get the time input
 
             if (!startDate || !endDate) {
                 alert('Please select both start and end dates.');
@@ -182,6 +185,16 @@
 
             if (!isMetric && !isNaN(verifiedThickness)) {
                 verifiedThickness = convertThickness(verifiedThickness, true); // Convert to Metric if input is Imperial
+            }
+
+            // If a time is selected for the verified thickness, include it in the date
+            let verifiedDateTime = new Date(verifiedDate);
+            if (verifiedTime) {
+                const [hours, minutes] = verifiedTime.split(":");
+                verifiedDateTime.setHours(hours, minutes);
+            } else {
+                // Use startDate if no time is selected
+                verifiedDateTime = new Date(startDate);
             }
 
             try {
@@ -207,7 +220,7 @@
 
                 // Initial thickness
                 let initialThickness = verifiedThickness || 0;
-                const initialDate = verifiedDate ? new Date(verifiedDate) : new Date(startDate);
+                const initialDate = verifiedDateTime;
 
                 const totalGrowthRate = (initialThickness, hourlyTemperatures) => {
                     let totalGrowth = 0;
