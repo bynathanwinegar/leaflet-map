@@ -206,8 +206,8 @@
                             temperature: fahrenheitToCelsius(forecast.temperature),
                             windSpeed: forecast.windSpeed,
                             relativeHumidity: forecast.relativeHumidity,
-                            solarRadiation: forecast.shortWaveRadiation.value,
                             probabilityOfPrecipitation: forecast.probabilityOfPrecipitation,
+                            solarRadiation: 0, // Assuming solarRadiation is not provided in the response
                         };
                         return calculateIceGrowth(weatherData, acc, 1);
                     }, verifiedThickness);
