@@ -139,22 +139,23 @@
         });
 
         coordinatesInput.addEventListener('change', () => {
-            const coords = coordinatesInput.value.split(',').map(c => parseFloat(c.trim()));
-            if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
-                selectedLatLng = { lat: coords[0], lng: coords[1] };
+    const coords = coordinatesInput.value.split(',').map(c => parseFloat(c.trim()));
+    if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
+        selectedLatLng = { lat: coords[0], lng: coords[1] };
 
-                // Move the marker and center the map
-                if (marker) {
-                    marker.setLatLng(selectedLatLng);
-                } else {
-                    marker = L.marker(selectedLatLng).addTo(map);
-                }
-                map.setView(selectedLatLng, map.getZoom());
-            } else {
-                alert('Invalid coordinates. Please enter in the format: Latitude, Longitude');
-            }
-}); 
-        document.getElementById('fetch-weather').addEventListener('click', async () => {
+        // Move the marker and center the map
+        if (marker) {
+            marker.setLatLng(selectedLatLng);
+        } else {
+            marker = L.marker(selectedLatLng).addTo(map);
+        }
+        map.setView(selectedLatLng, map.getZoom());
+    } else {
+        alert('Invalid coordinates. Please enter in the format: Latitude, Longitude');
+    }
+}); // Ensure this closing brace and parenthesis are present
+
+document.getElementById('fetch-weather').addEventListener('click', async () => {
     if (!selectedLatLng) {
         alert('Please select a location on the map or enter coordinates.');
         return;
