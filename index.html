@@ -226,8 +226,8 @@
                     let totalGrowth = 0;
                     let totalMelting = 0;
 
-                    // Iterate over hourly temperatures
-                    hourlyTemperatures.forEach(forecast => {
+                    // Iterate over hourly temperatures (calculate for each day)
+                    hourlyTemperatures.forEach((forecast, index) => {
                         const avgTemperature = fahrenheitToCelsius(forecast.temperature); // Convert hourly temp to Celsius
                         const fdd = Math.max(0, (0 - avgTemperature)); // Freezing Degree Days (FDD)
                         const pdd = Math.max(0, avgTemperature); // Positive Degree Days (PDD)
@@ -243,6 +243,16 @@
                         // Update growth and melting totals
                         totalGrowth += growthRate;
                         totalMelting += meltingRate;
+
+                        // If the index is the last in a day, apply the total for that day
+                        if ((index + 1) % 24 === 0) {
+                            initialThickness += totalGrowth - totalMelting;
+                            initialThickness = Math.max(0, initialThickness); // Prevent negative thickness
+
+                            // Reset totals for next day
+                            totalGrowth = 0;
+                            totalMelting = 0;
+                        }
                     });
 
                     return {
