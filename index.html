@@ -134,25 +134,33 @@
                 let initialThickness = verifiedThickness || 0;
                 const initialDate = verifiedDate ? new Date(verifiedDate) : new Date(startDate);
 
-                // Mock data: Calculate ice growth (in mm/day) using Ashton/Swedish methods
+                // Mock data: Calculate ice growth and melting (in mm/day)
                 const iceGrowthData = dateRange.map((date, index) => {
                     const temperature = -5 + Math.sin(index) * 3; // Simulated temperature (°C)
                     const fdd = Math.max(0, (0 - temperature)); // Freezing Degree Days
+                    const pdd = Math.max(0, temperature); // Positive Degree Days
 
-                    // Ashton formula for thick ice growth rate (simplified)
+                    // Growth rate (simplified Ashton formula)
                     const growthRate = initialThickness < 76.2 // 3 inches
                         ? Math.max(0, (temperature < -1 ? 0.5 : 0) * (Math.abs(temperature + 1)))
                         : Math.max(0, 25 / (15 + initialThickness));
 
-                    // Adjust growth rate based on environmental factors
-                    const adjustedGrowthRate = growthRate; // Further adjustment can be added
+                    // Melting rate (assumed linear relation to PDD)
+                    const meltingRate = pdd > 0 ? pdd * 0.2 : 0; // Example: 0.2 mm/°C/day
 
-                    // Update thickness for the next day
+                    // Adjust thickness based on date
                     if (date >= initialDate) {
-                        initialThickness += adjustedGrowthRate;
+                        initialThickness += (growthRate - meltingRate);
+                    } else {
+                        initialThickness -= meltingRate; // Estimate thinning for previous dates
                     }
 
-                    return { date: date.toISOString().split('T')[0], growthRate: adjustedGrowthRate, thickness: initialThickness };
+                    return {
+                        date: date.toISOString().split('T')[0],
+                        growthRate,
+                        meltingRate,
+                        thickness: Math.max(0, initialThickness),
+                    };
                 });
 
                 // Display ice growth data
@@ -160,6 +168,7 @@
                     <div style="border: 1px solid #ccc; padding: 10px; margin: 10px;">
                         <h3>${data.date}</h3>
                         <p>Ice Growth Rate: ${data.growthRate.toFixed(2)} mm/day</p>
+                        <p>Ice Melting Rate: ${data.meltingRate.toFixed(2)} mm/day</p>
                         <p>Total Thickness: ${data.thickness.toFixed(2)} mm</p>
                     </div>
                 `).join('');
@@ -167,6 +176,7 @@
                 // Prepare data for the chart
                 const labels = iceGrowthData.map(data => data.date);
                 const growthRates = iceGrowthData.map(data => data.growthRate);
+                const meltingRates = iceGrowthData.map(data => data.meltingRate);
                 const thicknesses = iceGrowthData.map(data => data.thickness);
 
                 // Create or update the ice growth chart
@@ -181,6 +191,13 @@
                                 data: growthRates,
                                 borderColor: 'rgba(75, 192, 192, 1)',
                                 backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                fill: true,
+                            },
+                            {
+                                label: 'Ice Melting Rate (mm/day)',
+                                data: meltingRates,
+                                borderColor: 'rgba(192, 192, 75, 1)',
+                                backgroundColor: 'rgba(192, 192, 75, 0.2)',
                                 fill: true,
                             },
                             {
