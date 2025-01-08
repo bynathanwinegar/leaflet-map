@@ -47,7 +47,7 @@
         <input type="date" id="end-date">
         <br><br>
         <label for="verified-thickness">Verified Ice Thickness:</label>
-        <input type="number" id="verified-thickness" placeholder="e.g., 50">
+        <input type="number" id="verified-thickness" placeholder="Centimeters">
         <label for="verified-date">Date of Measurement:</label>
         <input type="date" id="verified-date">
         <br><br>
@@ -87,10 +87,23 @@
             isMetric = metric;
             unitToggleMetric.classList.toggle('active', metric);
             unitToggleImperial.classList.toggle('active', !metric);
-            verifiedThicknessInput.placeholder = isMetric ? 'e.g., 50' : 'e.g., 2';
-            if (forecastCards.innerHTML) {
-                document.getElementById('fetch-weather').click(); // Re-fetch to update results
-            }
+            verifiedThicknessInput.placeholder = isMetric ? 'Centimeters' : 'Inches';
+
+            // Update displayed results without refetching
+            const forecastDivs = forecastCards.querySelectorAll('div');
+            forecastDivs.forEach(div => {
+                const paragraphs = div.querySelectorAll('p');
+                paragraphs.forEach(p => {
+                    const valueMatch = p.textContent.match(/([\d\.]+) (mm|in)/);
+                    if (valueMatch) {
+                        const value = parseFloat(valueMatch[1]);
+                        const unit = valueMatch[2];
+                        const convertedValue = unit === 'mm' ? convertThickness(value, false) : convertThickness(value, true);
+                        const newUnit = isMetric ? 'mm' : 'in';
+                        p.textContent = p.textContent.replace(/([\d\.]+) (mm|in)/, `${convertedValue.toFixed(2)} ${newUnit}`);
+                    }
+                });
+            });
         };
 
         unitToggleMetric.addEventListener('click', () => toggleUnits(true));
