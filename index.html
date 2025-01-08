@@ -183,15 +183,15 @@
             try {
                 const { lat, lng } = selectedLatLng;
 
-                // Fetch weather data from Weather.gov API (National Weather Service)
+                // Fetch weather data from Weather.gov API (National Weather Service) for hourly forecast
                 const weatherResponse = await axios.get(`https://api.weather.gov/points/${lat},${lng}`);
-                const forecastUrl = weatherResponse.data.properties.forecast;
+                const forecastUrl = weatherResponse.data.properties.forecastHourly; // Fetch hourly data
                 
-                // Fetch forecast data
+                // Fetch hourly forecast data
                 const forecastResponse = await axios.get(forecastUrl);
                 const forecastData = forecastResponse.data.properties.periods;
 
-                // Simulate fetching ice growth data for each day in the range based on weather forecast
+                // Filter forecast data to match the range between start and end dates
                 const dateRange = [];
                 let currentDate = new Date(startDate);
                 const endDateObj = new Date(endDate);
@@ -207,20 +207,24 @@
 
                 // Map the forecast data to actual dates and get temperature
                 const iceGrowthData = dateRange.map((date, index) => {
-                    // Find the closest forecast period for the date
+                    // Find the closest forecast period for the date (hourly)
                     const forecastForDate = forecastData.find(forecast => {
                         const forecastDate = new Date(forecast.startTime);
                         return forecastDate.toISOString().split('T')[0] === date.toISOString().split('T')[0];
                     });
 
-                    const temperature = forecastForDate ? forecastForDate.temperature : -5; // Default to -5°C if no data available
+                    const hourlyTemperatures = forecastData.filter(forecast => {
+                        const forecastDate = new Date(forecast.startTime);
+                        return forecastDate.toISOString().split('T')[0] === date.toISOString().split('T')[0];
+                    });
 
-                    const fdd = Math.max(0, (0 - temperature)); // Freezing Degree Days
-                    const pdd = Math.max(0, temperature); // Positive Degree Days
+                    let avgTemperature = hourlyTemperatures.reduce((sum, forecast) => sum + forecast.temperature, 0) / hourlyTemperatures.length;
+                    const fdd = Math.max(0, (0 - avgTemperature)); // Freezing Degree Days
+                    const pdd = Math.max(0, avgTemperature); // Positive Degree Days
 
                     // Growth rate (simplified Ashton formula)
                     const growthRate = initialThickness < 76.2 // 3 inches
-                        ? Math.max(0, (temperature < -1 ? 0.5 : 0) * (Math.abs(temperature + 1)))
+                        ? Math.max(0, (avgTemperature < -1 ? 0.5 : 0) * (Math.abs(avgTemperature + 1)))
                         : Math.max(0, 25 / (15 + initialThickness));
 
                     // Melting rate (assumed linear relation to PDD)
