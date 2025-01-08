@@ -20,6 +20,18 @@
             max-width: 600px;
             margin: 20px auto;
         }
+        .toggle-button {
+            display: inline-block;
+            padding: 5px 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+            background-color: #f0f0f0;
+        }
+        .toggle-button.active {
+            background-color: #007bff;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -39,9 +51,9 @@
         <label for="verified-date">Date of Measurement:</label>
         <input type="date" id="verified-date">
         <br><br>
-        <label for="unit-toggle">Units:</label>
-        <input type="range" id="unit-toggle" min="0" max="1" step="1"> 
-        <span id="unit-label">Metric</span>
+        <label>Units:</label>
+        <div id="unit-toggle" class="toggle-button active">Metric</div>
+        <div id="unit-toggle-imperial" class="toggle-button">Imperial</div>
         <br><br>
         <button id="fetch-weather">Fetch Ice Growth Data</button>
     </div>
@@ -65,17 +77,24 @@
         const endDateInput = document.getElementById('end-date');
         const verifiedThicknessInput = document.getElementById('verified-thickness');
         const verifiedDateInput = document.getElementById('verified-date');
-        const unitToggle = document.getElementById('unit-toggle');
-        const unitLabel = document.getElementById('unit-label');
+        const unitToggleMetric = document.getElementById('unit-toggle');
+        const unitToggleImperial = document.getElementById('unit-toggle-imperial');
         const forecastCards = document.getElementById('forecast-cards');
         let marker;
         let isMetric = true; // Default unit is Metric
 
-        unitToggle.addEventListener('input', () => {
-            isMetric = unitToggle.value === '0';
-            unitLabel.textContent = isMetric ? 'Metric' : 'Imperial';
+        const toggleUnits = (metric) => {
+            isMetric = metric;
+            unitToggleMetric.classList.toggle('active', metric);
+            unitToggleImperial.classList.toggle('active', !metric);
             verifiedThicknessInput.placeholder = isMetric ? 'e.g., 50' : 'e.g., 2';
-        });
+            if (forecastCards.innerHTML) {
+                document.getElementById('fetch-weather').click(); // Re-fetch to update results
+            }
+        };
+
+        unitToggleMetric.addEventListener('click', () => toggleUnits(true));
+        unitToggleImperial.addEventListener('click', () => toggleUnits(false));
 
         const convertThickness = (value, toMetric) => {
             return toMetric ? value * 25.4 : value / 25.4; // Convert between inches and millimeters
