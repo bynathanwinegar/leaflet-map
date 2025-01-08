@@ -149,25 +149,30 @@
                 const endDateObj = new Date(today);
                 endDateObj.setDate(today.getDate() + 6);
 
+                // Function to calculate ice growth based on weather data
                 const calculateIceGrowth = (weatherData, initialThickness, timeDurationHours) => {
-                    const freezingTemp = 0;
-                    const k = 0.001;
-                    const C = 0.0005;
+                    const freezingTemp = 0; // Freezing temperature in Celsius
+                    const k = 0.001; // Growth rate constant
+                    const C = 0.0005; // Another growth rate constant
 
+                    // Convert the air temperature from Fahrenheit to Celsius
                     const airTemp = fahrenheitToCelsius(weatherData.temperature);
                     const windSpeed = parseFloat(weatherData.windSpeed.split(' ')[0]);
                     const humidity = weatherData.relativeHumidity.value || 0;
                     const cloudCover = 1 - (weatherData.probabilityOfPrecipitation.value || 0) / 100;
 
+                    // Calculate the adjusted freezing potential
                     const adjustedFreezingPotential = freezingTemp - airTemp;
                     if (adjustedFreezingPotential <= 0) {
+                        // If the temperature is above freezing, no ice growth occurs
                         return initialThickness;
                     }
 
-                    const timeStepSeconds = 3600;
+                    const timeStepSeconds = 3600; // Number of seconds in an hour
                     const totalSteps = Math.ceil(timeDurationHours);
                     let thickness = initialThickness;
 
+                    // Calculate the ice growth over the duration
                     for (let step = 0; step < totalSteps; step++) {
                         thickness += k * adjustedFreezingPotential * (timeStepSeconds / 3600);
                     }
