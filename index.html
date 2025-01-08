@@ -155,13 +155,12 @@
                     const C = 0.0005;
                     const thresholdThickness = 0.1;
 
-                    const airTemp = weatherData.airTemp;
-                    const windSpeed = weatherData.windSpeed;
-                    const humidity = weatherData.humidity;
-                    const solarRadiation = weatherData.solarRadiation;
-                    const cloudCover = weatherData.cloudCover;
+                    const airTemp = weatherData.temperature;
+                    const windSpeed = parseFloat(weatherData.windSpeed.split(' ')[0]);
+                    const humidity = weatherData.relativeHumidity.value;
+                    const cloudCover = 1 - (weatherData.probabilityOfPrecipitation.value / 100);
 
-                    const adjustedFreezingPotential = freezingTemp - airTemp - (solarRadiation * (1 - cloudCover) * 0.0001);
+                    const adjustedFreezingPotential = freezingTemp - airTemp - (weatherData.solarRadiation * (1 - cloudCover) * 0.0001);
                     if (adjustedFreezingPotential <= 0) {
                         return initialThickness;
                     }
@@ -204,11 +203,11 @@
 
                     const growthRate = hourlyForecast.reduce((acc, forecast) => {
                         const weatherData = {
-                            airTemp: fahrenheitToCelsius(forecast.temperature),
-                            windSpeed: forecast.windSpeed.value,
-                            humidity: forecast.relativeHumidity.value,
+                            temperature: fahrenheitToCelsius(forecast.temperature),
+                            windSpeed: forecast.windSpeed,
+                            relativeHumidity: forecast.relativeHumidity,
                             solarRadiation: forecast.shortWaveRadiation.value,
-                            cloudCover: forecast.cloudCover.value,
+                            probabilityOfPrecipitation: forecast.probabilityOfPrecipitation,
                         };
                         return calculateIceGrowth(weatherData, acc, 1);
                     }, verifiedThickness);
