@@ -149,32 +149,40 @@
                 const endDateObj = new Date(today);
                 endDateObj.setDate(today.getDate() + 6);
 
-                // Function to calculate ice growth based on weather data
+                // New ice growth prediction logic based on provided script
                 const calculateIceGrowth = (weatherData, initialThickness, timeDurationHours) => {
-                    const freezingTemp = 0; // Freezing temperature in Celsius
-                    const k = 0.001; // Growth rate constant
-                    const C = 0.0005; // Another growth rate constant
+                    const freezingTemp = 0; // Freezing point of water (Celsius)
+                    const k = 0.001; // Thermal resistance coefficient (thin ice)
+                    const C = 0.0005; // Empirical constant (thick ice)
+                    const thresholdThickness = 0.1; // Transition threshold in meters (adjust as needed)
 
-                    // Convert the air temperature from Fahrenheit to Celsius
-                    const airTemp = fahrenheitToCelsius(weatherData.temperature);
-                    const windSpeed = parseFloat(weatherData.windSpeed.split(' ')[0]);
-                    const humidity = weatherData.relativeHumidity.value || 0;
-                    const cloudCover = 1 - (weatherData.probabilityOfPrecipitation.value || 0) / 100;
+                    // Extract weather variables
+                    const airTemp = weatherData.airTemp; // Air temperature (Celsius)
+                    const windSpeed = weatherData.windSpeed; // Wind speed (m/s)
+                    const humidity = weatherData.humidity; // Relative humidity (%)
+                    const solarRadiation = weatherData.solarRadiation; // Solar radiation (W/m^2)
+                    const cloudCover = weatherData.cloudCover; // Cloud cover (fraction, 0 to 1)
 
-                    // Calculate the adjusted freezing potential
-                    const adjustedFreezingPotential = freezingTemp - airTemp;
+                    // Adjusted freezing potential considering solar radiation and cloud cover
+                    const adjustedFreezingPotential = freezingTemp - airTemp - (solarRadiation * (1 - cloudCover) * 0.0001);
                     if (adjustedFreezingPotential <= 0) {
-                        // If the temperature is above freezing, no ice growth occurs
-                        return initialThickness;
+                        return initialThickness; // No freezing occurs if the adjusted potential is non-negative
                     }
 
-                    const timeStepSeconds = 3600; // Number of seconds in an hour
+                    // Time step for integration (1 hour in seconds)
+                    const timeStepSeconds = 3600; // 1 hour
                     const totalSteps = Math.ceil(timeDurationHours);
                     let thickness = initialThickness;
 
-                    // Calculate the ice growth over the duration
                     for (let step = 0; step < totalSteps; step++) {
-                        thickness += k * adjustedFreezingPotential * (timeStepSeconds / 3600);
+                        // Determine growth regime (thin vs thick ice)
+                        if (thickness < thresholdThickness) {
+                            // Linear growth for thin ice
+                            thickness += k * adjustedFreezingPotential * (timeStepSeconds / 3600);
+                        } else {
+                            // Square-root growth for thicker ice
+                            thickness += Math.sqrt(2 * C * adjustedFreezingPotential * (timeStepSeconds / 3600));
+                        }
                     }
 
                     return thickness;
@@ -203,21 +211,21 @@
 
                     const hourlyGrowthData = hourlyForecast.map(forecast => {
                         const weatherData = {
-                            temperature: forecast.temperature,
-                            windSpeed: forecast.windSpeed,
-                            relativeHumidity: forecast.relativeHumidity || { value: 0 },
-                            probabilityOfPrecipitation: forecast.probabilityOfPrecipitation || { value: 0 },
-                            solarRadiation: 0,
+                            airTemp: fahrenheitToCelsius(forecast.temperature),
+                            windSpeed: parseFloat(forecast.windSpeed.split(' ')[0]),
+                            humidity: forecast.relativeHumidity.value || 0,
+                            solarRadiation: 0, // Placeholder, adjust as necessary
+                            cloudCover: 1 - (forecast.probabilityOfPrecipitation.value || 0) / 100,
                         };
                         const growthRate = calculateIceGrowth(weatherData, totalThickness, 1);
                         totalThickness += growthRate;
                         return {
                             time: new Date(forecast.startTime).toISOString().split('T')[1].split(':')[0],
                             growthRate: isMetric ? growthRate : convertThickness(growthRate, false),
-                            temperature: weatherData.temperature,
-                            windSpeed: weatherData.windSpeed,
-                            relativeHumidity: weatherData.relativeHumidity.value,
-                            probabilityOfPrecipitation: weatherData.probabilityOfPrecipitation.value,
+                            temperature: forecast.temperature,
+                            windSpeed: forecast.windSpeed,
+                            relativeHumidity: forecast.relativeHumidity.value,
+                            probabilityOfPrecipitation: forecast.probabilityOfPrecipitation.value,
                         };
                     });
 
